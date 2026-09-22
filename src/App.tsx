@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { Session as GeminiLiveSession } from '@google/genai';
 import {
-  Accessibility, ArrowLeft, Bell, BookOpen, Check, CheckCircle2, ChevronRight,
+  Accessibility, ArrowLeft, Bell, BookOpen, Check, CheckCircle2, ChevronRight, ChevronUp,
   CircleHelp, Clock3, FileText, Hand, Headphones, Home, Info, LayoutList,
   LogOut, Menu, MessageCircleQuestion, Mic, MoreHorizontal, Pause, Play, Plus,
   RefreshCcw, Repeat2, Search, Send, Settings, ShieldCheck, Sparkles, UserRound,
@@ -130,26 +130,157 @@ const API_BASE =
     ? `${window.location.protocol}//${window.location.hostname}:3001`
     : 'http://127.0.0.1:3001');
 
-function playAudioChime() {
+export type ManagerAlert = {
+  id: string;
+  signal: 'understood' | 'slow-down' | 'repeat' | 'clarify';
+  title: string;
+  detail: string;
+  badge: string;
+  sender: string;
+  time: string;
+  topic?: string;
+  theme: 'emerald' | 'amber' | 'blue' | 'purple';
+};
+
+function playHarmonicAlert(signal: string) {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
-    gain.gain.setValueAtTime(0.04, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.25);
+    const now = ctx.currentTime;
+
+    if (signal === 'understood') {
+      // Pleasant C-Major Arpeggio (C5 - E5 - G5)
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        gain.gain.setValueAtTime(0.04, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.08 + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.35);
+      });
+    } else if (signal === 'slow-down') {
+      // Mellow warning double chime (E5 -> C5)
+      [659.25, 523.25].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.12);
+        gain.gain.setValueAtTime(0.05, now + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.12);
+        osc.stop(now + i * 0.12 + 0.4);
+      });
+    } else if (signal === 'repeat') {
+      // Double chirp (D5 -> A5 -> D6)
+      [587.33, 880.0, 1174.66].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.07);
+        gain.gain.setValueAtTime(0.04, now + i * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.07 + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.07);
+        osc.stop(now + i * 0.07 + 0.3);
+      });
+    } else {
+      // Clarify: gentle inquiry chime (F5 -> A5)
+      [698.46, 880.0].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.1);
+        gain.gain.setValueAtTime(0.045, now + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.1 + 0.38);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.1);
+        osc.stop(now + i * 0.1 + 0.38);
+      });
+    }
+
+    // Gentle tactile vibration for mobile
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      if (signal === 'understood') {
+        navigator.vibrate([60, 40, 60]);
+      } else {
+        navigator.vibrate([90, 50, 90]);
+      }
+    }
   } catch {}
 }
 
-function useSharedDemo(role: Role | null, onToast?: (msg: string, type: Toast['type']) => void) {
+function createManagerAlert(signal: string, topic?: string): ManagerAlert {
+  const id = `alert-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const sender = 'Alex Morgan (Employee)';
+
+  if (signal === 'understood') {
+    return {
+      id,
+      signal: 'understood',
+      title: 'Alex đã hiểu rõ (Understood)',
+      detail: 'Alex đã nắm bắt kịp tiến độ và hiểu rõ nội dung vừa trao đổi. Hãy tiếp tục chia sẻ!',
+      badge: 'ĐÃ HIỂU RÕ',
+      sender,
+      time,
+      theme: 'emerald',
+    };
+  } else if (signal === 'slow-down') {
+    return {
+      id,
+      signal: 'slow-down',
+      title: 'Alex: Xin hãy nói chậm lại (Slow down)',
+      detail: 'Alex đề nghị bạn giảm tốc độ nói hoặc ngắt nghỉ 2-3 giây sau mỗi câu để kịp theo dõi.',
+      badge: 'NÓI CHẬM LẠI',
+      sender,
+      time,
+      theme: 'amber',
+    };
+  } else if (signal === 'repeat') {
+    return {
+      id,
+      signal: 'repeat',
+      title: 'Alex: Xin nhắc lại ý vừa nói (Repeat)',
+      detail: 'Alex chưa nghe rõ hoặc chưa kịp ghi nhận ý vừa trao đổi, xin được nghe nhắc lại ngắn gọn.',
+      badge: 'NHẮC LẠI',
+      sender,
+      time,
+      theme: 'blue',
+    };
+  } else {
+    const topicLabel =
+      topic === 'DEADLINE' ? 'Hạn chót (Deadline)' :
+      topic === 'REQUIREMENT' ? 'Yêu cầu (Requirements)' :
+      topic === 'TASK' ? 'Nhiệm vụ cụ thể' :
+      (topic || 'Nội dung công việc');
+    return {
+      id,
+      signal: 'clarify',
+      title: `Alex yêu cầu làm rõ: ${topicLabel}`,
+      detail: `Alex cần bạn xác nhận lại chi tiết về "${topicLabel}" để tránh hiểu nhầm.`,
+      badge: 'CẦN LÀM RÕ',
+      sender,
+      time,
+      topic,
+      theme: 'purple',
+    };
+  }
+}
+
+function useSharedDemo(
+  role: Role | null,
+  onToast?: (msg: string, type: Toast['type']) => void,
+  onManagerAlert?: (alert: ManagerAlert) => void,
+) {
   const socketRef = useRef<Socket | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const prevSignalRef = useRef<string | null>(null);
@@ -191,6 +322,17 @@ function useSharedDemo(role: Role | null, onToast?: (msg: string, type: Toast['t
     channelRef.current = channel;
     channel.onmessage = (event) => {
       if (event.data?.type === 'state') setState(event.data.payload);
+      if (event.data?.type === 'signal') {
+        const sig = event.data.payload.signal;
+        const topic = event.data.payload.topic;
+        if (role === 'manager') {
+          playHarmonicAlert(sig);
+          const alertObj = createManagerAlert(sig, topic);
+          onManagerAlert?.(alertObj);
+          const type = sig === 'understood' ? 'success' : 'warning';
+          onToast?.(`⚡ ${alertObj.title}`, type);
+        }
+      }
       if (event.data?.type === 'reset') {
         setState(initialShared);
         setSegments(defaultSegments);
@@ -237,6 +379,16 @@ function useSharedDemo(role: Role | null, onToast?: (msg: string, type: Toast['t
     socket.on('session:state', handleStateUpdate);
     socket.on('demo:state', handleStateUpdate);
 
+    socket.on('communication:signal', (data: { signal: string; senderRole: string; topic?: string }) => {
+      if (role === 'manager') {
+        playHarmonicAlert(data.signal);
+        const alertObj = createManagerAlert(data.signal, data.topic);
+        onManagerAlert?.(alertObj);
+        const type = data.signal === 'understood' ? 'success' : 'warning';
+        onToast?.(`⚡ ${alertObj.title}`, type);
+      }
+    });
+
     socket.on('session:reset', () => {
       setState(initialShared);
       setSegments(defaultSegments);
@@ -257,8 +409,10 @@ function useSharedDemo(role: Role | null, onToast?: (msg: string, type: Toast['t
 
     socket.on('clarification:event', (req: { topic: string }) => {
       if (role === 'manager') {
-        playAudioChime();
-        onToast?.(`Alex requested clarification on: ${req.topic}`, 'warning');
+        playHarmonicAlert('clarify');
+        const alertObj = createManagerAlert('clarify', req.topic);
+        onManagerAlert?.(alertObj);
+        onToast?.(`⚡ ${alertObj.title}`, 'warning');
       }
     });
 
@@ -279,7 +433,7 @@ function useSharedDemo(role: Role | null, onToast?: (msg: string, type: Toast['t
       socketRef.current = null;
       window.removeEventListener('storage', storage);
     };
-  }, [role, onToast]);
+  }, [role, onToast, onManagerAlert]);
 
   const command = (
     name: DemoCommand,
@@ -524,6 +678,82 @@ const navItems: { id: View; label: string; icon: typeof Home }[] = [
   { id: 'settings', label: 'Preferences', icon: Settings },
 ];
 
+const mobileNavItems: { id: View; label: string; icon: typeof Home }[] = [
+  { id: 'home', label: 'Tổng quan', icon: Home },
+  { id: 'session', label: 'Họp Live', icon: Mic },
+  { id: 'tasks', label: 'Nhiệm vụ', icon: LayoutList },
+  { id: 'settings', label: 'Cài đặt', icon: Settings },
+];
+
+function ManagerHeadsUpBanner({
+  alert,
+  onDismiss,
+}: {
+  alert: ManagerAlert | null;
+  onDismiss: () => void;
+}) {
+  if (!alert) return null;
+
+  const Icon =
+    alert.signal === 'understood' ? CheckCircle2 :
+    alert.signal === 'slow-down' ? Hand :
+    alert.signal === 'repeat' ? Repeat2 :
+    CircleHelp;
+
+  return (
+    <>
+      {/* Ambient glowing bar along top edge of viewport */}
+      <div className={`manager-ambient-glow theme-${alert.theme}`} />
+
+      {/* Floating Heads-Up Banner / Standout Callout */}
+      <div className={`manager-heads-up-banner theme-${alert.theme}`} role="alert" aria-live="assertive">
+        <div className="manager-alert-icon-wrap">
+          <div className="manager-alert-icon-ring" />
+          <Icon size={22} strokeWidth={2.4} />
+        </div>
+
+        <div className="manager-alert-body">
+          <div className="manager-alert-top">
+            <div className="manager-alert-sender-chip">
+              <span className="manager-sender-avatar">AM</span>
+              <span className="manager-sender-name">{alert.sender}</span>
+            </div>
+            <span className={`manager-signal-badge ${alert.theme}`}>{alert.badge}</span>
+            <span className="manager-alert-time">{alert.time}</span>
+          </div>
+          <h4 className="manager-alert-title">{alert.title}</h4>
+          <p className="manager-alert-detail">{alert.detail}</p>
+        </div>
+
+        <div className="manager-alert-actions">
+          <button
+            type="button"
+            className="manager-alert-ack-btn"
+            onClick={onDismiss}
+            title="Đã ghi nhận phản hồi từ Alex"
+          >
+            <Check size={14} />
+            <span>Đã biết</span>
+          </button>
+          <button
+            type="button"
+            className="manager-alert-close-btn"
+            onClick={onDismiss}
+            aria-label="Đóng thông báo"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Countdown progress bar */}
+        <div className="manager-alert-progress-track">
+          <div className="manager-alert-progress-fill" />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function Shell({
   role,
   view,
@@ -533,6 +763,8 @@ function Shell({
   notifications,
   toasts,
   onDismissToast,
+  managerAlert,
+  onDismissManagerAlert,
 }: {
   role: Role;
   view: View;
@@ -542,13 +774,20 @@ function Shell({
   notifications: { title: string; time: string; type: string }[];
   toasts: Toast[];
   onDismissToast: (id: string) => void;
+  managerAlert?: ManagerAlert | null;
+  onDismissManagerAlert?: () => void;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const name = role === 'employee' ? 'Alex Morgan' : 'Jordan Lee';
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell view-${view}`}>
+      {/* Realtime Standout Heads-Up Alert for Manager */}
+      {role === 'manager' && managerAlert && onDismissManagerAlert && (
+        <ManagerHeadsUpBanner alert={managerAlert} onDismiss={onDismissManagerAlert} />
+      )}
+
       <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sidebar-head">
           <Brand />
@@ -593,8 +832,8 @@ function Shell({
         <header className="topbar">
           <button className="menu-button" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu /></button>
           <div className="topbar-title">
-            <span>Demo Workspace</span>
-            <small>{role === 'employee' ? 'Employee view (Alex)' : 'Manager view (Jordan)'}</small>
+            <span>{role === 'employee' ? 'Employee' : 'Manager'}</span>
+            <small>{role === 'employee' ? 'Alex Morgan · Product Designer' : 'Jordan Lee · Team Manager'}</small>
           </div>
           <div className="top-actions">
             <button className="icon-button" onClick={() => setView('knowledge')} aria-label="Search company knowledge" title="Search company policy">
@@ -638,6 +877,33 @@ function Shell({
         </header>
         <main className="page-content">{children}</main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Essential, Large & Clear) */}
+      <nav className="mobile-bottom-nav" aria-label="Mobile bottom navigation">
+        {mobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = view === item.id;
+          const isSession = item.id === 'session';
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`bottom-nav-item ${isActive ? 'active' : ''} ${isSession ? 'session-nav' : ''}`}
+              onClick={() => {
+                setView(item.id);
+                setMobileOpen(false);
+              }}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <span className="bottom-nav-icon-wrap">
+                <Icon size={21} />
+                {isSession && <span className="bottom-nav-pulse-dot" />}
+              </span>
+              <span className="bottom-nav-label">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* Floating Toast Container */}
       <div className="toast-container" aria-live="polite">
@@ -1162,28 +1428,23 @@ function SessionView({
     onToast(`${role === 'manager' ? 'Jordan' : 'Alex'} sent a message`, 'info');
   };
 
-  const handleSendQuickPrompt = (text: string) => {
-    emitTranscript(text, true, 'demo');
-    if (role === 'manager' && state.step === 'live') {
-      const lower = text.toLowerCase();
-      if (/actually|move|thursday|change|dời|đổi|thay đổi/.test(lower)) {
-        emitBarrier('LOW_CONFIDENCE', 'A deadline or requirement has been updated.', 'Pause and acknowledge the changed detail clearly.');
-      }
-    }
-    onToast(`${role === 'manager' ? 'Jordan' : 'Alex'} sent a message`, 'info');
-  };
+  const [signalsOpen, setSignalsOpen] = useState(false);
 
   const handleSignal = (sig: 'understood' | 'slow-down' | 'repeat') => {
-    if (sig === 'understood') {
-      command('communication:understood');
-      onToast('Signal sent: "Understood" (Jordan notified)', 'success');
-    } else if (sig === 'slow-down') {
-      command('communication:slow-down');
-      onToast('Signal sent: "Slow down" (Jordan notified)', 'warning');
-    } else if (sig === 'repeat') {
-      command('communication:repeat');
-      onToast('Signal sent: "Repeat" (Jordan notified)', 'warning');
-    }
+    command(sig === 'understood' ? 'communication:understood' : sig === 'slow-down' ? 'communication:slow-down' : 'communication:repeat');
+
+    try {
+      const ch = new BroadcastChannel('understood-demo');
+      ch.postMessage({ type: 'signal', payload: { signal: sig, senderRole: role } });
+      ch.close();
+    } catch {}
+
+    const textMap = {
+      understood: 'Đã gửi tín hiệu: "Đã hiểu" (Jordan đã nhận được thông báo)',
+      'slow-down': 'Đã gửi tín hiệu: "Nói chậm lại" (Jordan đã nhận cảnh báo)',
+      repeat: 'Đã gửi tín hiệu: "Nhắc lại ý vừa rồi" (Jordan đã nhận thông báo)',
+    };
+    onToast(textMap[sig], sig === 'understood' ? 'success' : 'warning');
   };
 
   const handleClarificationSubmit = (topic: ClarificationTopic) => {
@@ -1198,6 +1459,12 @@ function SessionView({
 
     emitTranscript(queryText, true, 'demo');
 
+    try {
+      const ch = new BroadcastChannel('understood-demo');
+      ch.postMessage({ type: 'signal', payload: { signal: 'clarify', topic, senderRole: role } });
+      ch.close();
+    } catch {}
+
     if (clarifyOpen === 'task') {
       command('task:employee-clarify', { topic });
       onToast(`Task clarification requested on "${topic}" (Jordan notified)`, 'info');
@@ -1208,7 +1475,10 @@ function SessionView({
     setClarifyOpen(null);
   };
 
+  const [mobileTaskOpen, setMobileTaskOpen] = useState(false);
+
   const handleFocusDetails = () => {
+    setMobileTaskOpen(true);
     const el = document.getElementById('important-info');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -1301,12 +1571,303 @@ function SessionView({
   const taskVisible = ['task', 'managerConfirmed', 'taskClarification', 'confirmed'].includes(state.step);
   const confirmed = state.step === 'confirmed';
   const activeBarrier = barrierCopy[state.barrierType ?? 'LOW_CONFIDENCE'];
+  const hasPendingAction = state.step === 'task' || state.step === 'managerConfirmed' || state.step === 'taskClarification';
+
+  const renderKeyDetailsContent = () => (
+    <>
+      {/* Task View Mode Switcher */}
+      <div className="task-mode-switcher">
+        <button
+          type="button"
+          className={`task-mode-btn ${taskViewMode === 'focus' ? 'active' : ''}`}
+          onClick={() => setTaskViewMode('focus')}
+          title="Xem chi tiết 1 task chính"
+        >
+          <Sparkles size={13} />
+          <span>Task chính (Focus)</span>
+        </button>
+        <button
+          type="button"
+          className={`task-mode-btn ${taskViewMode === 'list' ? 'active' : ''}`}
+          onClick={() => setTaskViewMode('list')}
+          title="Xem toàn bộ danh sách task cuộc họp"
+        >
+          <LayoutList size={13} />
+          <span>Danh sách Task</span>
+          <span className="task-badge-count">{sessionTasks.length}</span>
+        </button>
+      </div>
+
+      {/* Live AI Conversation Summary Box */}
+      {aiSummary && (
+        <div className="ai-summary-box">
+          <div className="ai-summary-box-header">
+            <Sparkles size={16} />
+            <span>AI Tóm tắt cuộc trao đổi</span>
+            <span className="ai-summary-tag">
+              {aiSummary.taskCount > 1 ? `${aiSummary.taskCount} Tasks` : 'AI Summary'}
+            </span>
+          </div>
+          <p className="ai-summary-text">{aiSummary.summary}</p>
+          {aiSummary.bulletPoints.length > 0 && (
+            <ul className="ai-summary-bullets">
+              {aiSummary.bulletPoints.map((bp: string, i: number) => (
+                <li key={i}>{bp}</li>
+              ))}
+            </ul>
+          )}
+          {aiSummary.keyDecisions.length > 0 && (
+            <div className="ai-decision-row">
+              {aiSummary.keyDecisions.map((kd: string, i: number) => (
+                <span key={i} className="ai-decision-tag">
+                  <CheckCircle2 size={12} /> {kd}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Multi-Task Deduplicated List */}
+          {aiSummary.tasks && aiSummary.tasks.length > 0 && (
+            <div className="ai-multitask-list">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <small style={{ fontWeight: 700, color: '#1d5582' }}>
+                  {aiSummary.tasks.length > 1 ? `AI trích xuất ${aiSummary.tasks.length} nhiệm vụ:` : 'AI trích xuất 1 nhiệm vụ:'}
+                </small>
+                <button
+                  type="button"
+                  className="mini-action-btn primary"
+                  style={{ fontSize: 9, padding: '3px 8px' }}
+                  onClick={() => handleApplyAiTasksToSession(aiSummary.tasks)}
+                  title="Đồng bộ tất cả nhiệm vụ này vào danh sách phiên họp"
+                >
+                  <Check size={11} /> Áp dụng vào danh sách
+                </button>
+              </div>
+              {aiSummary.tasks.map((tItem: ExtractedTaskItem, idx: number) => (
+                <div
+                  key={idx}
+                  className="ai-task-item-card clickable"
+                  onClick={() => {
+                    emitPossibleTask(tItem);
+                    setTaskViewMode('focus');
+                    onToast(`Đã chọn nhiệm vụ: "${tItem.title}"`, 'info');
+                  }}
+                  title="Bấm để chọn làm tiêu điểm và xác nhận nhiệm vụ này"
+                >
+                  <div className="ai-task-item-top">
+                    <strong>{idx + 1}. {tItem.title}</strong>
+                    <span className="mini-chip">{tItem.deadline}</span>
+                  </div>
+                  <small>Phụ trách: {tItem.assignee} · {tItem.requirement}</small>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Mode 1: Multi-Task List View */}
+      {taskViewMode === 'list' ? (
+        <div className="synthesized-task-list-wrap">
+          <div className="synthesized-task-list">
+            {sessionTasks.map((st, idx) => {
+              const isConfirmed = st.status === 'CONFIRMED';
+              const isMgrConfirmed = st.status === 'MANAGER_CONFIRMED';
+              return (
+                <div
+                  key={st.id || idx}
+                  className={`synthesized-task-card ${isConfirmed ? 'confirmed' : ''}`}
+                >
+                  <div className="synthesized-task-header">
+                    <div className="synthesized-task-title-wrap">
+                      <span className="task-num-tag">#{idx + 1}</span>
+                      <h4 className="synthesized-task-title">{st.title}</h4>
+                    </div>
+                    <span className={isConfirmed ? 'status-dot green' : 'status-dot'}>
+                      {isConfirmed ? 'Confirmed' : isMgrConfirmed ? 'Awaiting Alex' : 'Possible'}
+                    </span>
+                  </div>
+                  <div className="task-meta-row">
+                    <span><UserRound size={12} /> {st.assignee}</span>
+                    <span className="deadline-badge"><Clock3 size={11} /> {st.deadline}</span>
+                    <span>Rev {st.revision || 1}</span>
+                  </div>
+                  <p className="task-requirement-text">{st.requirement}</p>
+                  <div className="synthesized-task-actions">
+                    <button
+                      type="button"
+                      className="mini-action-btn"
+                      onClick={() => handleSelectTaskFocus(st)}
+                      title="Xem chi tiết & xác nhận từng bước"
+                    >
+                      <Sparkles size={11} /> Xem chi tiết
+                    </button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {!isConfirmed && (
+                        <button
+                          type="button"
+                          className="mini-action-btn success"
+                          onClick={() => handleQuickConfirmSingleTask(st.id)}
+                          title="Xác nhận nhanh nhiệm vụ này"
+                        >
+                          <Check size={11} /> Xác nhận
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="mini-action-btn danger"
+                        onClick={() => handleRemoveTask(st.id)}
+                        title="Loại trừ nhiệm vụ này"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Batch Actions for Task List */}
+          <div className="batch-task-toolbar">
+            <button
+              type="button"
+              className="batch-confirm-all-btn"
+              onClick={handleBatchConfirmAll}
+              title="Đồng thuận và xác nhận tất cả nhiệm vụ trong phiên"
+            >
+              <CheckCircle2 size={15} /> Xác nhận tất cả ({sessionTasks.length}) Task
+            </button>
+            <button
+              type="button"
+              className="add-task-quick-btn"
+              onClick={() => setCreateTaskOpen(true)}
+              title="Thêm nhiệm vụ mới vào phiên"
+            >
+              <Plus size={14} /> Thêm Task
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Mode 2: Single Focus Task Card */
+        !taskVisible ? (
+          barrier ? (
+            <div className="barrier-diff-card">
+              <div className="barrier-diff-header">
+                <Zap size={16} />
+                <span>Communication Change Detected</span>
+                <span className="barrier-tag">AI Live Diff</span>
+              </div>
+              <div className="diff-comparison">
+                <div className="diff-item old">
+                  <small>Previous / Initial</small>
+                  <strong><s>Friday</s></strong>
+                </div>
+                <div className="diff-arrow"><ChevronRight size={18} /></div>
+                <div className="diff-item new">
+                  <small>Updated In Speech</small>
+                  <strong><mark>{state.deadline || 'Thursday, 4:00 PM'}</mark></strong>
+                </div>
+              </div>
+              <div className="barrier-guidance-box">
+                <Sparkles size={14} />
+                <p>
+                  {role === 'manager'
+                    ? 'Alex may need clear restatement of the updated deadline. Use the Restatement Box to confirm.'
+                    : 'Jordan modified the deadline mid-sentence. You can ask for clarification or wait for restatement.'}
+                </p>
+              </div>
+              {role === 'employee' && (
+                <button className="primary-button full-width" onClick={() => setClarifyOpen('conversation')}>
+                  <CircleHelp size={16} /> Ask for Clarification
+                </button>
+              )}
+            </div>
+          ) : !aiSummary ? (
+            <div className="empty-context">
+              <FileText />
+              <strong>No task detected yet</strong>
+              <p>Important work details and changed deadlines will appear here for review.</p>
+            </div>
+          ) : null
+        ) : (
+          <div className={`task-card ${confirmed ? 'confirmed' : ''}`}>
+            <div className="task-card-top">
+              <span><Sparkles /> {confirmed ? 'Confirmed task' : state.step === 'taskClarification' ? 'Clarification requested' : state.step === 'managerConfirmed' ? 'Manager confirmed' : 'Possible task detected'}</span>
+              <span className={confirmed ? 'status-dot green' : 'status-dot'}>{confirmed ? 'Confirmed' : state.step === 'managerConfirmed' ? 'Awaiting employee' : state.step === 'taskClarification' ? 'Needs revision' : 'Awaiting manager'}</span>
+            </div>
+            <dl>
+              <div><dt>Task</dt><dd>{state.taskTitle}</dd></div>
+              <div><dt>Assignee</dt><dd>{state.assignee || 'Alex Morgan'}</dd></div>
+              <div><dt>Deadline</dt><dd>{state.deadline}</dd><small className="change-note">Updated from Friday</small></div>
+              <div><dt>Requirement</dt><dd>{state.requirement}</dd></div>
+            </dl>
+
+            {role === 'manager' && (state.step === 'task' || state.step === 'taskClarification') && (
+              <>
+                <div className={state.step === 'taskClarification' ? 'clarification-note' : 'clarification-note hidden'}>
+                  <CircleHelp /> Alex requested clarification about: <strong>{state.clarificationTopic || 'Deadline'}</strong>
+                </div>
+                <div className="task-buttons">
+                  <button className="secondary-button" onClick={() => { setDraft(state); setEditOpen(true); }}>Edit</button>
+                  <button
+                    className="primary-button"
+                    onClick={() => {
+                      command('task:manager-confirm');
+                      emitTranscript(`Jordan confirmed Assignment (Revision ${(state.revision || 0) + 1}): "${state.taskTitle || 'Nhiệm vụ'}" · Due ${state.deadline || 'Chưa định ngày'}`, true, 'demo');
+                      onToast('Task revision confirmed by Manager', 'success');
+                    }}
+                  >
+                    <Check /> {state.step === 'taskClarification' ? 'Confirm revised task' : 'Confirm assignment'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {role === 'manager' && state.step === 'managerConfirmed' && (
+              <div className="waiting-note"><Clock3 /> Waiting for Alex to acknowledge revision {state.revision || 1}</div>
+            )}
+
+            {role === 'employee' && state.step === 'managerConfirmed' && (
+              <div className="ack-area">
+                <p><CheckCircle2 /> Jordan confirmed revision {state.revision || 1}. Does it match your understanding?</p>
+                <button className="secondary-button" onClick={() => setClarifyOpen('task')}>Request clarification</button>
+                <button
+                  className="primary-button"
+                  onClick={() => {
+                    command('task:employee-acknowledge');
+                    emitTranscript(`Alex acknowledged & accepted: "${state.taskTitle || 'Nhiệm vụ'}" (Mutually confirmed)`, true, 'demo');
+                    onToast('Task mutually confirmed and accepted', 'success');
+                  }}
+                >
+                  <Check /> Understood & accept
+                </button>
+              </div>
+            )}
+
+            {role === 'employee' && state.step === 'taskClarification' && (
+              <div className="waiting-note"><Clock3 /> Clarification sent · waiting for Jordan to revise</div>
+            )}
+
+            {confirmed && (
+              <div className="confirmed-note"><CheckCircle2 /> Manager confirmed · Alex acknowledged (Revision {state.revision || 1})</div>
+            )}
+          </div>
+        )
+      )}
+
+      <button className="demo-control ai-action-btn" disabled={aiLoading} onClick={() => void runAiSummarize()}>
+        <Sparkles size={18} className="ai-btn-sparkle" />
+        <span>{aiLoading ? 'Đang tóm tắt…' : 'AI Tóm tắt & Trích Task'}</span>
+      </button>
+    </>
+  );
 
   return (
     <div className="session-page">
       <div className="session-header">
-        <div>
-          <span className="presence-pill"><i /> 1:1 Live Connected</span>
+        <div className="session-info">
+          <span className="session-live presence-pill"><i /> 1:1 Live</span>
           <strong>Jordan Lee & Alex Morgan</strong>
           <small>Session ADC-DEMO</small>
         </div>
@@ -1336,7 +1897,7 @@ function SessionView({
                 onClick={() => voice.changeLanguage('vi-VN')}
                 title="Tiếng Việt (Nhận diện tức thì)"
               >
-                <span className="lang-tag">VI</span> Tiếng Việt
+                <span className="lang-tag">VI</span><span className="lang-name"> Tiếng Việt</span>
               </button>
               <button
                 type="button"
@@ -1346,28 +1907,51 @@ function SessionView({
                 onClick={() => voice.changeLanguage('en-US')}
                 title="English (Real-time transcription)"
               >
-                <span className="lang-tag">EN</span> English
+                <span className="lang-tag">EN</span><span className="lang-name"> English</span>
               </button>
             </div>
           </div>
-          <button className="icon-button" onClick={reset} title="Khởi động lại phiên demo" aria-label="Restart demo session">
-            <RefreshCcw size={16} />
-          </button>
-          <button
-            className="end-button"
-            onClick={() => {
-              voice.stop();
-              command('session:end');
-              onToast(`Phiên họp đã kết thúc bởi ${role === 'manager' ? 'Jordan' : 'Alex'}`, 'info');
-            }}
-          >
-            <Pause size={16} /> Kết thúc
-          </button>
+          <div className="session-end-group">
+            <button className="icon-button" onClick={reset} title="Khởi động lại phiên demo" aria-label="Restart demo session">
+              <RefreshCcw size={16} />
+            </button>
+            <button
+              className="end-button"
+              onClick={() => {
+                voice.stop();
+                command('session:end');
+                onToast(`Phiên họp đã kết thúc bởi ${role === 'manager' ? 'Jordan' : 'Alex'}`, 'info');
+              }}
+            >
+              <Pause size={16} /> <span>Kết thúc</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="session-grid">
         <section className={`conversation-panel caption-${preferences.captionSize} sensitivity-${preferences.alertSensitivity}`}>
+          {/* Realtime Live Signal Alert for Manager */}
+          {role === 'manager' && state.lastSignal && (
+            <div className={`manager-live-signal-banner ${state.lastSignal.toLowerCase().replace(/\s+/g, '-')}`}>
+              <div className="signal-banner-icon">
+                {state.lastSignal === 'Understood' ? <CheckCircle2 size={22} /> :
+                 state.lastSignal === 'Slow down' ? <Hand size={22} /> :
+                 state.lastSignal === 'Repeat' ? <Repeat2 size={22} /> :
+                 <CircleHelp size={22} />}
+              </div>
+              <div className="signal-banner-content">
+                <span className="signal-banner-kicker">Tín hiệu trực tiếp từ Alex (Employee)</span>
+                <strong>
+                  {state.lastSignal === 'Understood' ? '🟢 Alex đã hiểu toàn bộ nội dung vừa trao đổi' :
+                   state.lastSignal === 'Slow down' ? '🟠 Alex yêu cầu: Hãy nói chậm lại một chút' :
+                   state.lastSignal === 'Repeat' ? '🔵 Alex yêu cầu: Vui lòng nhắc lại chi tiết vừa nói' :
+                   `🟣 Alex yêu cầu: ${state.lastSignal}`}
+                </strong>
+              </div>
+            </div>
+          )}
+
           <div className={`communication-banner ${barrier ? 'warning' : confirmed ? 'success' : ''}`}>
             <span>{barrier ? <Zap /> : confirmed ? <CheckCircle2 /> : <Volume2 />}</span>
             <div>
@@ -1391,10 +1975,20 @@ function SessionView({
               </small>
             </div>
             {barrier && (
-              <button onClick={handleFocusDetails}>
+              <button onClick={handleFocusDetails} className="banner-details-btn">
                 {state.step === 'clarify' && role === 'manager' ? 'View request' : 'Details'}
               </button>
             )}
+            <button
+              type="button"
+              className="ai-banner-summary-btn"
+              onClick={() => void runAiSummarize()}
+              disabled={aiLoading}
+              title="AI tóm tắt toàn bộ cuộc trao đổi và trích xuất nhiệm vụ"
+            >
+              <Sparkles size={15} className="ai-btn-sparkle" />
+              <span className="ai-banner-btn-label">{aiLoading ? 'Đang tóm tắt…' : 'Tóm tắt AI'}</span>
+            </button>
           </div>
 
           {voice.error && <div className={voice.status === 'error' ? 'voice-error' : 'voice-notice'} role="status"><Info size={15} /> {voice.error}</div>}
@@ -1418,61 +2012,72 @@ function SessionView({
                 <p>Bật micro 🎙️ hoặc gõ tin nhắn bên dưới để bắt đầu. AI sẽ tự động phân tích & tóm tắt dựa trên toàn bộ câu thoại bạn trực tiếp trao đổi trong phiên.</p>
               </div>
             )}
-            {segments.map((seg, idx) => (
-              <div key={seg.id || idx} className={`transcript-turn ${seg.speakerRole} ${seg.speakerRole === role ? 'is-self' : 'is-other'}`}>
-                <div className="speaker-avatar">
-                  {seg.speakerRole === 'manager' ? 'JL' : 'AM'}
-                </div>
-                <div>
-                  <div className="turn-header">
-                    <strong>
-                      {seg.speakerRole === 'manager' ? 'JORDAN LEE (Manager)' : 'ALEX MORGAN (Employee)'}
-                      {seg.speakerRole === role && <span className="self-badge">You</span>}
-                    </strong>
-                    <small>{seg.startedAt || '10:40 AM'} · {seg.source === 'gemini' ? 'Gemini Live' : seg.source === 'browser' ? 'Browser' : seg.source === 'demo' ? 'Live Turn' : 'Mic'}</small>
+            {segments.map((seg, idx) => {
+              const isSelf = seg.speakerRole === role;
+              return (
+                <div
+                  key={seg.id || idx}
+                  className={`transcript-turn ${seg.speakerRole} ${isSelf ? 'is-self' : 'is-other'}`}
+                >
+                  <div className="speaker-avatar">
+                    {seg.speakerRole === 'manager' ? 'JL' : 'AM'}
                   </div>
-                  <p style={{ whiteSpace: 'pre-line' }}>
-                    {seg.text.includes('Thursday at 4 PM') ? (
-                      <>
-                        Actually, let's move the deadline to <mark className="diff-highlight">Thursday at 4 PM</mark>
-                        <span className="diff-badge"><RefreshCcw size={10} /> Updated</span> and include the accessibility flow.
-                      </>
-                    ) : /thứ\s*Năm\s*lúc\s*16(?::00|h)?/i.test(seg.text) ? (
-                      <>
-                        Dời deadline sang <mark className="diff-highlight">thứ Năm lúc 16:00</mark>
-                        <span className="diff-badge"><RefreshCcw size={10} /> Đã đổi hạn</span> kèm luồng trợ năng nhé.
-                      </>
-                    ) : (
-                      seg.text
-                    )}
-                  </p>
-                  {role === 'employee' && seg.speakerRole === 'manager' && (
-                    <button
-                      type="button"
-                      className="inline-clarify-btn"
-                      onClick={() => {
-                        emitTranscript(`Alex requested clarification on: "${seg.text.slice(0, 45)}..."`, true, 'demo');
-                        command('clarification:request', { topic: 'DEADLINE' });
-                        onToast('Clarification requested on this statement', 'info');
-                      }}
-                      title="Request clarification on this statement"
-                    >
-                      <CircleHelp size={11} /> Clarify this statement
-                    </button>
-                  )}
+                  <div className="turn-content-wrap">
+                    <div className="turn-header">
+                      <strong>
+                        {seg.speakerRole === 'manager' ? 'Jordan Lee' : 'Alex Morgan'}
+                      </strong>
+                      <small>{seg.startedAt || '10:40 AM'}</small>
+                    </div>
+                    <div className="turn-bubble">
+                      <p style={{ whiteSpace: 'pre-line' }}>
+                        {seg.text.includes('Thursday at 4 PM') ? (
+                          <>
+                            Actually, let's move the deadline to <mark className="diff-highlight">Thursday at 4 PM</mark>
+                            <span className="diff-badge"><RefreshCcw size={10} /> Updated</span> and include the accessibility flow.
+                          </>
+                        ) : /thứ\s*Năm\s*lúc\s*16(?::00|h)?/i.test(seg.text) ? (
+                          <>
+                            Dời deadline sang <mark className="diff-highlight">thứ Năm lúc 16:00</mark>
+                            <span className="diff-badge"><RefreshCcw size={10} /> Đã đổi hạn</span> kèm luồng trợ năng nhé.
+                          </>
+                        ) : (
+                          seg.text
+                        )}
+                      </p>
+                      {role === 'employee' && seg.speakerRole === 'manager' && (
+                        <button
+                          type="button"
+                          className="inline-clarify-btn"
+                          onClick={() => {
+                            emitTranscript(`Alex requested clarification on: "${seg.text.slice(0, 45)}..."`, true, 'demo');
+                            command('clarification:request', { topic: 'DEADLINE' });
+                            onToast('Clarification requested on this statement', 'info');
+                          }}
+                          title="Request clarification on this statement"
+                        >
+                          <CircleHelp size={11} /> Clarify this statement
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {voice.status === 'live' && voice.transcript && (
               <div className={`transcript-turn ${role} is-self live-interim-card`}>
                 <div className="speaker-avatar">{role === 'manager' ? 'JL' : 'AM'}</div>
-                <div>
+                <div className="turn-content-wrap">
                   <div className="turn-header">
-                    <strong>{role === 'manager' ? 'JORDAN LEE' : 'ALEX MORGAN'} <span className="self-badge">You</span> (Đang nói...)</strong>
-                    <span className="live-pill"><span className="live-dot" /> Nhận diện tức thì ({voice.language === 'vi-VN' ? 'Tiếng Việt' : 'English'})</span>
+                    <strong>
+                      {role === 'manager' ? 'Jordan Lee' : 'Alex Morgan'}
+                    </strong>
+                    <span className="live-pill"><span className="live-dot" /> Đang nói...</span>
                   </div>
-                  <p className="interim-text">{voice.transcript}</p>
+                  <div className="turn-bubble">
+                    <p className="interim-text">{voice.transcript}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -1484,18 +2089,9 @@ function SessionView({
             <div ref={timelineEndRef} />
           </div>
 
-          {/* AI Chat Utility Toolbar */}
-          <div className="ai-chat-toolbar">
-            <button
-              type="button"
-              className="ai-summary-pill-btn"
-              onClick={() => void runAiSummarize()}
-              disabled={aiLoading}
-              title="AI tóm tắt toàn bộ cuộc trao đổi và trích xuất nhiệm vụ"
-            >
-              <Sparkles size={14} /> {aiLoading ? 'AI đang tóm tắt & trích xuất...' : '✨ AI Tóm tắt & Trích Task (AI Summary)'}
-            </button>
-            {aiSummary && (
+          {/* Post-Summary Action if Available */}
+          {aiSummary && (
+            <div className="ai-chat-toolbar">
               <button
                 type="button"
                 className="ai-post-chat-btn"
@@ -1506,98 +2102,115 @@ function SessionView({
                 }}
                 title="Gửi nội dung tóm tắt vào dòng hội thoại"
               >
-                <Send size={12} /> Gửi tóm tắt vào chat
+                <Send size={13} /> Gửi tóm tắt AI vào hội thoại
               </button>
-            )}
-          </div>
-
-          {/* In-Session Text & Speech Input Bar */}
-          <form className="transcript-input-bar" onSubmit={handleSendText}>
-            <input
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={isDictating ? 'Đang lắng nghe giọng nói của bạn...' : `Nói qua mic phía trên hoặc gõ ${role === 'manager' ? 'chỉ đạo công việc / trao đổi' : 'phản hồi / câu hỏi'}...`}
-            />
-            <button
-              type="button"
-              className={`dictate-btn ${isDictating ? 'active' : ''}`}
-              onClick={toggleDictation}
-              title={isDictating ? 'Dừng đọc' : 'Nói để tự điền văn bản vào ô chat'}
-              aria-label="Dictate into text input"
-            >
-              <Mic size={18} />
-            </button>
-            <button type="submit" className="send-btn" title="Gửi nội dung vào hội thoại">
-              <Send size={14} /> Gửi
-            </button>
-          </form>
-
-          {/* Demo Quick Chat Prompt Chips */}
-          <div className="quick-chat-chips">
-            <span className="chips-label">Quick send:</span>
-            {role === 'manager' ? (
-              <>
-                <button type="button" onClick={() => handleSendQuickPrompt("Actually, let's move the deadline to Thursday at 4 PM and include the accessibility flow.")}>
-                  "Move deadline to Thu 4 PM"
-                </button>
-                <button type="button" onClick={() => handleSendQuickPrompt("Alex, please deliver the high-fidelity design prototype by Wednesday 3 PM.")}>
-                  "Assign prototype task"
-                </button>
-                <button type="button" onClick={() => handleSendQuickPrompt("Dời deadline sang thứ Năm lúc 16:00 kèm luồng trợ năng nhé.")}>
-                  (VI) "Dời hạn sang Thứ 5 16h"
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" onClick={() => handleSendQuickPrompt("Could we clarify the final deadline?")}>
-                  "Clarify deadline?"
-                </button>
-                <button type="button" onClick={() => handleSendQuickPrompt("Understood, I will deliver the prototype by Thursday 4 PM.")}>
-                  "Understood & accept"
-                </button>
-                <button type="button" onClick={() => handleSendQuickPrompt("Cho mình xin xác nhận lại thời hạn chót chính xác là khi nào?")}>
-                  (VI) "Làm rõ deadline"
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Quick Communication Actions for Employee */}
-          {role === 'employee' ? (
-            <div className="quick-actions" aria-label="Communication actions" style={{ marginTop: 12 }}>
-              <button aria-label="Understood" onClick={() => handleSignal('understood')} title="Send Understood signal to Manager">
-                <CheckCircle2 /><span>Understood</span>
-              </button>
-              <button aria-label="Slow down" onClick={() => handleSignal('slow-down')} title="Ask Manager to slow down">
-                <Hand /><span>Slow down</span>
-              </button>
-              <button aria-label="Repeat" onClick={() => handleSignal('repeat')} title="Ask Manager to repeat detail">
-                <Repeat2 /><span>Repeat</span>
-              </button>
-              <button aria-label="Ask for clarification" className="accent" onClick={() => setClarifyOpen('conversation')} title="Choose what to clarify">
-                <CircleHelp /><span>Clarify</span>
-              </button>
-            </div>
-          ) : preferences.visualPrompts ? (
-            <div className="manager-guidance" style={{ marginTop: 12 }}>
-              <Sparkles />
-              <span>
-                <strong>Quiet guidance</strong>
-                <small>
-                  {state.step === 'clarify'
-                    ? `Restate the ${state.clarificationTopic?.toLowerCase() || 'requested detail'} clearly for Alex.`
-                    : barrier
-                    ? activeBarrier.detail
-                    : 'Communication is clear. Both Jordan and Alex are connected.'}
-                </small>
-              </span>
-            </div>
-          ) : (
-            <div className="manager-guidance muted" style={{ marginTop: 12 }}>
-              <Bell />
-              <span><strong>Private prompts are off</strong><small>Essential session status remains available above.</small></span>
             </div>
           )}
+
+          {/* In-Session Chat Dock (Fixed above Bottom Nav on Mobile, Inline on Desktop) */}
+          <div className="session-chat-dock">
+            <form className="transcript-input-bar" onSubmit={handleSendText}>
+              {role === 'employee' && (
+                <div className="quick-signals-container">
+                  <button
+                    type="button"
+                    className={`quick-signals-trigger-btn ${signalsOpen ? 'active' : ''}`}
+                    onClick={() => setSignalsOpen(!signalsOpen)}
+                    title="Mở tiện ích phản hồi nhanh 1 chạm đến Manager"
+                    aria-label="Phản hồi nhanh"
+                  >
+                    <Hand size={17} />
+                    <ChevronUp size={13} className={`signals-chevron ${signalsOpen ? 'open' : ''}`} />
+                  </button>
+
+                  {signalsOpen && (
+                    <div className="quick-signals-popover" role="dialog" aria-label="Tùy chọn phản hồi nhanh">
+                      <div className="signals-popover-header">
+                        <span>⚡ Phản hồi nhanh đến Jordan</span>
+                        <button type="button" onClick={() => setSignalsOpen(false)} aria-label="Đóng"><X size={14} /></button>
+                      </div>
+                      <div className="signals-popover-grid">
+                        <button
+                          type="button"
+                          className="signal-opt-btn understood"
+                          onClick={() => {
+                            handleSignal('understood');
+                            setSignalsOpen(false);
+                          }}
+                        >
+                          <span className="signal-opt-icon"><CheckCircle2 size={18} /></span>
+                          <div>
+                            <strong>Understood</strong>
+                            <small>Đã hiểu rõ nội dung</small>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          className="signal-opt-btn slow-down"
+                          onClick={() => {
+                            handleSignal('slow-down');
+                            setSignalsOpen(false);
+                          }}
+                        >
+                          <span className="signal-opt-icon"><Hand size={18} /></span>
+                          <div>
+                            <strong>Slow down</strong>
+                            <small>Xin hãy nói chậm lại</small>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          className="signal-opt-btn repeat"
+                          onClick={() => {
+                            handleSignal('repeat');
+                            setSignalsOpen(false);
+                          }}
+                        >
+                          <span className="signal-opt-icon"><Repeat2 size={18} /></span>
+                          <div>
+                            <strong>Repeat</strong>
+                            <small>Xin nhắc lại chi tiết</small>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          className="signal-opt-btn clarify"
+                          onClick={() => {
+                            setClarifyOpen('conversation');
+                            setSignalsOpen(false);
+                          }}
+                        >
+                          <span className="signal-opt-icon"><CircleHelp size={18} /></span>
+                          <div>
+                            <strong>Clarify</strong>
+                            <small>Yêu cầu làm rõ cụ thể</small>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <input
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder={isDictating ? 'Đang lắng nghe giọng nói của bạn...' : `Nói qua mic phía trên hoặc gõ ${role === 'manager' ? 'chỉ đạo công việc / trao đổi' : 'phản hồi / câu hỏi'}...`}
+              />
+              <button
+                type="button"
+                className={`dictate-btn ${isDictating ? 'active' : ''}`}
+                onClick={toggleDictation}
+                title={isDictating ? 'Dừng đọc' : 'Nói để tự điền văn bản vào ô chat'}
+                aria-label="Dictate into text input"
+              >
+                <Mic size={18} />
+              </button>
+              <button type="submit" className="send-btn" title="Gửi nội dung vào hội thoại">
+                <Send size={14} /> Gửi
+              </button>
+            </form>
+          </div>
         </section>
 
         <aside className={`context-panel ${highlightPulse ? 'highlight-pulse' : ''}`} id="important-info">
@@ -1605,293 +2218,47 @@ function SessionView({
             <span className="section-kicker">Shared understanding</span>
             <h2>Key details</h2>
           </div>
-
-          {/* Task View Mode Switcher */}
-          <div className="task-mode-switcher">
-            <button
-              type="button"
-              className={`task-mode-btn ${taskViewMode === 'focus' ? 'active' : ''}`}
-              onClick={() => setTaskViewMode('focus')}
-              title="Xem chi tiết 1 task chính"
-            >
-              <Sparkles size={13} />
-              <span>Task chính (Focus)</span>
-            </button>
-            <button
-              type="button"
-              className={`task-mode-btn ${taskViewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setTaskViewMode('list')}
-              title="Xem toàn bộ danh sách task cuộc họp"
-            >
-              <LayoutList size={13} />
-              <span>Danh sách Task</span>
-              <span className="task-badge-count">{sessionTasks.length}</span>
-            </button>
-          </div>
-
-          {/* Live AI Conversation Summary Box */}
-          {aiSummary && (
-            <div className="ai-summary-box">
-              <div className="ai-summary-box-header">
-                <Sparkles size={16} />
-                <span>AI Tóm tắt cuộc trao đổi</span>
-                <span className="ai-summary-tag">
-                  {aiSummary.taskCount > 1 ? `${aiSummary.taskCount} Tasks` : 'AI Summary'}
-                </span>
-              </div>
-              <p className="ai-summary-text">{aiSummary.summary}</p>
-              {aiSummary.bulletPoints.length > 0 && (
-                <ul className="ai-summary-bullets">
-                  {aiSummary.bulletPoints.map((bp: string, i: number) => (
-                    <li key={i}>{bp}</li>
-                  ))}
-                </ul>
-              )}
-              {aiSummary.keyDecisions.length > 0 && (
-                <div className="ai-decision-row">
-                  {aiSummary.keyDecisions.map((kd: string, i: number) => (
-                    <span key={i} className="ai-decision-tag">
-                      <CheckCircle2 size={12} /> {kd}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Multi-Task Deduplicated List */}
-              {aiSummary.tasks && aiSummary.tasks.length > 0 && (
-                <div className="ai-multitask-list">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <small style={{ fontWeight: 700, color: '#1d5582' }}>
-                      {aiSummary.tasks.length > 1 ? `AI trích xuất ${aiSummary.tasks.length} nhiệm vụ:` : 'AI trích xuất 1 nhiệm vụ:'}
-                    </small>
-                    <button
-                      type="button"
-                      className="mini-action-btn primary"
-                      style={{ fontSize: 9, padding: '3px 8px' }}
-                      onClick={() => handleApplyAiTasksToSession(aiSummary.tasks)}
-                      title="Đồng bộ tất cả nhiệm vụ này vào danh sách phiên họp"
-                    >
-                      <Check size={11} /> Áp dụng vào danh sách
-                    </button>
-                  </div>
-                  {aiSummary.tasks.map((tItem: ExtractedTaskItem, idx: number) => (
-                    <div
-                      key={idx}
-                      className="ai-task-item-card clickable"
-                      onClick={() => {
-                        emitPossibleTask(tItem);
-                        setTaskViewMode('focus');
-                        onToast(`Đã chọn nhiệm vụ: "${tItem.title}"`, 'info');
-                      }}
-                      title="Bấm để chọn làm tiêu điểm và xác nhận nhiệm vụ này"
-                    >
-                      <div className="ai-task-item-top">
-                        <strong>{idx + 1}. {tItem.title}</strong>
-                        <span className="mini-chip">{tItem.deadline}</span>
-                      </div>
-                      <small>Phụ trách: {tItem.assignee} · {tItem.requirement}</small>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Mode 1: Multi-Task List View */}
-          {taskViewMode === 'list' ? (
-            <div className="synthesized-task-list-wrap">
-              <div className="synthesized-task-list">
-                {sessionTasks.map((st, idx) => {
-                  const isConfirmed = st.status === 'CONFIRMED';
-                  const isMgrConfirmed = st.status === 'MANAGER_CONFIRMED';
-                  return (
-                    <div
-                      key={st.id || idx}
-                      className={`synthesized-task-card ${isConfirmed ? 'confirmed' : ''}`}
-                    >
-                      <div className="synthesized-task-header">
-                        <div className="synthesized-task-title-wrap">
-                          <span className="task-num-tag">#{idx + 1}</span>
-                          <h4 className="synthesized-task-title">{st.title}</h4>
-                        </div>
-                        <span className={isConfirmed ? 'status-dot green' : 'status-dot'}>
-                          {isConfirmed ? 'Confirmed' : isMgrConfirmed ? 'Awaiting Alex' : 'Possible'}
-                        </span>
-                      </div>
-                      <div className="task-meta-row">
-                        <span><UserRound size={12} /> {st.assignee}</span>
-                        <span className="deadline-badge"><Clock3 size={11} /> {st.deadline}</span>
-                        <span>Rev {st.revision || 1}</span>
-                      </div>
-                      <p className="task-requirement-text">{st.requirement}</p>
-                      <div className="synthesized-task-actions">
-                        <button
-                          type="button"
-                          className="mini-action-btn"
-                          onClick={() => handleSelectTaskFocus(st)}
-                          title="Xem chi tiết & xác nhận từng bước"
-                        >
-                          <Sparkles size={11} /> Xem chi tiết
-                        </button>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {!isConfirmed && (
-                            <button
-                              type="button"
-                              className="mini-action-btn success"
-                              onClick={() => handleQuickConfirmSingleTask(st.id)}
-                              title="Xác nhận nhanh nhiệm vụ này"
-                            >
-                              <Check size={11} /> Xác nhận
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="mini-action-btn danger"
-                            onClick={() => handleRemoveTask(st.id)}
-                            title="Loại trừ nhiệm vụ này"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Batch Actions for Task List */}
-              <div className="batch-task-toolbar">
-                <button
-                  type="button"
-                  className="batch-confirm-all-btn"
-                  onClick={handleBatchConfirmAll}
-                  title="Đồng thuận và xác nhận tất cả nhiệm vụ trong phiên"
-                >
-                  <CheckCircle2 size={15} /> Xác nhận tất cả ({sessionTasks.length}) Task
-                </button>
-                <button
-                  type="button"
-                  className="add-task-quick-btn"
-                  onClick={() => setCreateTaskOpen(true)}
-                  title="Thêm nhiệm vụ mới vào phiên"
-                >
-                  <Plus size={14} /> Thêm Task
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Mode 2: Single Focus Task Card */
-            !taskVisible ? (
-              barrier ? (
-                <div className="barrier-diff-card">
-                  <div className="barrier-diff-header">
-                    <Zap size={16} />
-                    <span>Communication Change Detected</span>
-                    <span className="barrier-tag">AI Live Diff</span>
-                  </div>
-                  <div className="diff-comparison">
-                    <div className="diff-item old">
-                      <small>Previous / Initial</small>
-                      <strong><s>Friday</s></strong>
-                    </div>
-                    <div className="diff-arrow"><ChevronRight size={18} /></div>
-                    <div className="diff-item new">
-                      <small>Updated In Speech</small>
-                      <strong><mark>{state.deadline || 'Thursday, 4:00 PM'}</mark></strong>
-                    </div>
-                  </div>
-                  <div className="barrier-guidance-box">
-                    <Sparkles size={14} />
-                    <p>
-                      {role === 'manager'
-                        ? 'Alex may need clear restatement of the updated deadline. Use the Restatement Box to confirm.'
-                        : 'Jordan modified the deadline mid-sentence. You can ask for clarification or wait for restatement.'}
-                    </p>
-                  </div>
-                  {role === 'employee' && (
-                    <button className="primary-button full-width" onClick={() => setClarifyOpen('conversation')}>
-                      <CircleHelp size={16} /> Ask for Clarification
-                    </button>
-                  )}
-                </div>
-              ) : !aiSummary ? (
-                <div className="empty-context">
-                  <FileText />
-                  <strong>No task detected yet</strong>
-                  <p>Important work details and changed deadlines will appear here for review.</p>
-                </div>
-              ) : null
-            ) : (
-              <div className={`task-card ${confirmed ? 'confirmed' : ''}`}>
-                <div className="task-card-top">
-                  <span><Sparkles /> {confirmed ? 'Confirmed task' : state.step === 'taskClarification' ? 'Clarification requested' : state.step === 'managerConfirmed' ? 'Manager confirmed' : 'Possible task detected'}</span>
-                  <span className={confirmed ? 'status-dot green' : 'status-dot'}>{confirmed ? 'Confirmed' : state.step === 'managerConfirmed' ? 'Awaiting employee' : state.step === 'taskClarification' ? 'Needs revision' : 'Awaiting manager'}</span>
-                </div>
-                <dl>
-                  <div><dt>Task</dt><dd>{state.taskTitle}</dd></div>
-                  <div><dt>Assignee</dt><dd>{state.assignee || 'Alex Morgan'}</dd></div>
-                  <div><dt>Deadline</dt><dd>{state.deadline}</dd><small className="change-note">Updated from Friday</small></div>
-                  <div><dt>Requirement</dt><dd>{state.requirement}</dd></div>
-                </dl>
-
-                {role === 'manager' && (state.step === 'task' || state.step === 'taskClarification') && (
-                  <>
-                    <div className={state.step === 'taskClarification' ? 'clarification-note' : 'clarification-note hidden'}>
-                      <CircleHelp /> Alex requested clarification about: <strong>{state.clarificationTopic || 'Deadline'}</strong>
-                    </div>
-                    <div className="task-buttons">
-                      <button className="secondary-button" onClick={() => { setDraft(state); setEditOpen(true); }}>Edit</button>
-                      <button
-                        className="primary-button"
-                        onClick={() => {
-                          command('task:manager-confirm');
-                          emitTranscript(`Jordan confirmed Assignment (Revision ${(state.revision || 0) + 1}): "${state.taskTitle}" · Due ${state.deadline}`, true, 'demo');
-                          onToast('Task revision confirmed by Manager', 'success');
-                        }}
-                      >
-                        <Check /> {state.step === 'taskClarification' ? 'Confirm revised task' : 'Confirm assignment'}
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {role === 'manager' && state.step === 'managerConfirmed' && (
-                  <div className="waiting-note"><Clock3 /> Waiting for Alex to acknowledge revision {state.revision || 1}</div>
-                )}
-
-                {role === 'employee' && state.step === 'managerConfirmed' && (
-                  <div className="ack-area">
-                    <p><CheckCircle2 /> Jordan confirmed revision {state.revision || 1}. Does it match your understanding?</p>
-                    <button className="secondary-button" onClick={() => setClarifyOpen('task')}>Request clarification</button>
-                    <button
-                      className="primary-button"
-                      onClick={() => {
-                        command('task:employee-acknowledge');
-                        emitTranscript(`Alex acknowledged & accepted: "${state.taskTitle}" (Mutually confirmed)`, true, 'demo');
-                        onToast('Task mutually confirmed and accepted', 'success');
-                      }}
-                    >
-                      <Check /> Understood & accept
-                    </button>
-                  </div>
-                )}
-
-                {role === 'employee' && state.step === 'taskClarification' && (
-                  <div className="waiting-note"><Clock3 /> Clarification sent · waiting for Jordan to revise</div>
-                )}
-
-                {confirmed && (
-                  <div className="confirmed-note"><CheckCircle2 /> Manager confirmed · Alex acknowledged (Revision {state.revision || 1})</div>
-                )}
-              </div>
-            )
-          )}
-
-          <button className="demo-control ai-action-btn" disabled={aiLoading} onClick={() => void runAiSummarize()}>
-            <Sparkles size={16} /> {aiLoading ? 'Đang tóm tắt…' : '✨ AI Tóm tắt & Trích Task'}
-          </button>
+          {renderKeyDetailsContent()}
         </aside>
       </div>
+
+      {/* Mobile Floating Task Action Button */}
+      <button
+        type="button"
+        className={`mobile-floating-task-btn ${hasPendingAction ? 'has-action' : ''}`}
+        onClick={() => setMobileTaskOpen(true)}
+        aria-label="Mở Nhiệm vụ & Xác nhận"
+        title="Mở Nhiệm vụ & Xác nhận"
+      >
+        <LayoutList size={18} />
+        <span>Nhiệm vụ {sessionTasks.length > 0 ? `(${sessionTasks.length})` : ''}</span>
+        {hasPendingAction && <span className="floating-action-dot" />}
+      </button>
+
+      {/* Mobile Task & Confirmation Drawer Sheet */}
+      {mobileTaskOpen && (
+        <div className="mobile-drawer-layer" role="dialog" aria-modal="true" aria-label="Nhiệm vụ & Xác nhận">
+          <div className="mobile-drawer-backdrop" onClick={() => setMobileTaskOpen(false)} />
+          <div className="mobile-drawer-sheet">
+            <div className="mobile-drawer-handle" />
+            <div className="mobile-drawer-header">
+              <div className="mobile-drawer-title">
+                <LayoutList size={20} color="var(--orange)" />
+                <div>
+                  <strong>Nhiệm vụ & Xác nhận</strong>
+                  <small>{sessionTasks.length} nhiệm vụ · {role === 'manager' ? 'Jordan Lee' : 'Alex Morgan'}</small>
+                </div>
+              </div>
+              <button className="mobile-drawer-close" onClick={() => setMobileTaskOpen(false)} aria-label="Đóng">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mobile-drawer-body">
+              {renderKeyDetailsContent()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Create Task Inline */}
       {createTaskOpen && (
@@ -2297,6 +2664,51 @@ const defaultKnowledge: KnowledgeResult = {
   mode: 'fallback',
 };
 
+function renderStructuredDetail(detail: string) {
+  if (!detail) return null;
+
+  // Check if text has (1), (2), (3) style numbered points
+  const numberedPattern = /\((\d+)\)\s*([^;(]+)/g;
+  const matches = [...detail.matchAll(numberedPattern)];
+
+  if (matches.length > 1) {
+    const intro = detail.split(/\(1\)/)[0].replace(/:\s*$/, '').trim();
+    return (
+      <div className="structured-detail-block">
+        {intro && <p className="detail-intro-text">{intro}:</p>}
+        <div className="detail-points-grid">
+          {matches.map((m, idx) => (
+            <div key={idx} className="detail-point-card">
+              <span className="point-num-badge">{m[1]}</span>
+              <p className="point-text">{m[2].trim().replace(/;$/, '')}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Check if text has bullet points • or -
+  if (detail.includes('•') || detail.includes('\n- ') || detail.includes('\n• ')) {
+    const lines = detail.split(/\n|•/).map((l) => l.trim()).filter(Boolean);
+    return (
+      <div className="structured-detail-block">
+        <div className="detail-points-grid">
+          {lines.map((line, idx) => (
+            <div key={idx} className="detail-point-card">
+              <span className="point-bullet-icon"><CheckCircle2 size={15} /></span>
+              <p className="point-text">{line.replace(/^[-•*]\s*/, '')}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Regular multiline paragraph
+  return <p className="detail-regular-text">{detail}</p>;
+}
+
 function KnowledgeView() {
   const [question, setQuestion] = useState('Chính sách hỗ trợ cho người khiếm thính như thế nào?');
   const [result, setResult] = useState<KnowledgeResult>({
@@ -2311,6 +2723,16 @@ function KnowledgeView() {
     mode: 'fallback',
   });
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const answerRef = useRef<HTMLDivElement>(null);
+
+  const reasoningSteps = [
+    { title: 'Phân tích câu hỏi', detail: 'Đang xác định ngữ cảnh và nội dung cần tra cứu', tag: 'Phân tích từ khóa' },
+    { title: 'Tìm kiếm trong kho dữ liệu', detail: 'Đang quét toàn bộ sổ tay chính sách & quy chuẩn doanh nghiệp', tag: 'Khớp 98.4%' },
+    { title: 'Đối chiếu và xác thực thông tin', detail: 'Kiểm tra độ chính xác, đảm bảo đúng quy định nội bộ', tag: 'Đã xác thực' },
+    { title: 'Tổng hợp câu trả lời chi tiết', detail: 'Chuẩn bị câu trả lời rõ ràng theo từng đầu mục dễ đọc', tag: 'Đã sẵn sàng' },
+  ];
 
   const suggestedQuestions = [
     'Chính sách hỗ trợ cho người khiếm thính?',
@@ -2327,23 +2749,54 @@ function KnowledgeView() {
     if (!submitted) return;
     setQuestion(submitted);
     setLoading(true);
+    setLoadingStep(0);
+    setElapsedMs(0);
+
+    // Smooth auto-scroll down to answer zone
+    setTimeout(() => {
+      answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 60);
+
+    const startTime = Date.now();
+    const timerInterval = setInterval(() => {
+      setElapsedMs(Date.now() - startTime);
+    }, 50);
+
+    // Step progression intervals to make the loading sequence look hyper-cool
+    const step1 = setTimeout(() => setLoadingStep(1), 300);
+    const step2 = setTimeout(() => setLoadingStep(2), 620);
+    const step3 = setTimeout(() => setLoadingStep(3), 950);
+
     try {
-      const response = await fetch(`${API_BASE}/api/v1/knowledge/query`, {
+      const fetchPromise = fetch(`${API_BASE}/api/v1/knowledge/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: submitted }),
       });
+      // Guarantee minimum 1.2s for the cool multi-step pipeline animation to display smoothly
+      const [response] = await Promise.all([
+        fetchPromise,
+        new Promise((resolve) => setTimeout(resolve, 1200)),
+      ]);
       if (!response.ok) throw new Error('Knowledge service unavailable');
-      setResult(await response.json());
+      const data = await response.json();
+      setResult(data);
     } catch {
       setResult({
         found: false,
         answer: 'Không tìm thấy thông tin phù hợp trong kho dữ liệu doanh nghiệp.',
-        detail: 'Dịch vụ AI kiến thức tạm thời không phản hồi. Vui lòng thử lại hoặc liên hệ People Operations.',
+        detail: 'Dịch vụ tra cứu kiến thức tạm thời không phản hồi. Vui lòng thử lại hoặc liên hệ People Operations.',
         source: null,
       });
     } finally {
+      clearInterval(timerInterval);
+      clearTimeout(step1);
+      clearTimeout(step2);
+      clearTimeout(step3);
       setLoading(false);
+      setTimeout(() => {
+        answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
     }
   };
 
@@ -2373,38 +2826,99 @@ function KnowledgeView() {
           ))}
         </div>
 
-        <div className={`knowledge-answer ${result.found ? '' : 'not-found'}`}>
-          <span className="answer-icon">{result.found ? <BookOpen /> : <CircleHelp />}</span>
-          <div>
-            <small style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {result.found ? (
-                <>
-                  <Sparkles size={13} color="#2a6fb3" />
-                  <span>ANSWER FROM VERIFIED ENTERPRISE POLICY</span>
-                  {result.mode === 'ai' && <span className="diff-badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>Gemini RAG</span>}
-                </>
-              ) : (
-                'NO APPROVED SOURCE FOUND'
-              )}
-            </small>
-            <h3>{result.answer}</h3>
-            <p style={{ whiteSpace: 'pre-line', lineHeight: 1.6 }}>{result.detail}</p>
-            {result.source ? (
-              <div className="source-card">
-                <FileText />
-                <span>
-                  <strong>{result.source.title}</strong>
-                  <small>{result.source.section} · {result.source.updatedAt}</small>
+        {loading ? (
+          <div ref={answerRef} className="knowledge-loading-card cool-ai-pipeline" role="status">
+            <div className="pipeline-header">
+              <div className="pipeline-title-group">
+                <span className="pipeline-ai-orb">
+                  <Search size={20} className="ai-spin" />
+                  <span className="orb-ring-pulse" />
                 </span>
-                <ChevronRight />
+                <div>
+                  <div className="pipeline-live-row">
+                    <span className="live-dot" />
+                    <strong>Hệ thống đang tìm kiếm dữ liệu...</strong>
+                    <span className="pipeline-timer">⏱ {(elapsedMs / 1000).toFixed(2)}s</span>
+                  </div>
+                  <small>Đang tra cứu, đối chiếu và tổng hợp thông tin từ cơ sở dữ liệu doanh nghiệp</small>
+                </div>
               </div>
-            ) : (
-              <button type="button" className="contact-button" onClick={() => ask('Who is my People Partner & HR contact?')}>
-                <UserRound /> Contact People Operations
-              </button>
-            )}
+              <div className="pipeline-telemetry-tag">
+                <Zap size={13} />
+                <span>Đang truy xuất dữ liệu</span>
+              </div>
+            </div>
+
+            <div className="pipeline-progress-bar-wrap">
+              <div className="pipeline-progress-bar-fill" style={{ width: `${Math.min(100, (loadingStep + 1) * 25)}%` }} />
+            </div>
+
+            <div className="reasoning-steps-list">
+              {reasoningSteps.map((s, idx) => {
+                const isDone = loadingStep > idx;
+                const isCurrent = loadingStep === idx;
+                return (
+                  <div key={idx} className={`reasoning-step-item ${isDone ? 'done' : isCurrent ? 'current' : 'pending'}`}>
+                    <div className="step-state-indicator">
+                      {isDone ? (
+                        <span className="step-icon done"><CheckCircle2 size={16} /></span>
+                      ) : isCurrent ? (
+                        <span className="step-icon current"><Sparkles size={14} className="ai-spin" /></span>
+                      ) : (
+                        <span className="step-icon pending">{idx + 1}</span>
+                      )}
+                    </div>
+                    <div className="step-info-col">
+                      <div className="step-title-row">
+                        <span className="step-main-title">{s.title}</span>
+                        <span className="step-chip">{s.tag}</span>
+                      </div>
+                      <span className="step-sub-detail">{s.detail}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="shimmer-lines-container compact">
+              <div className="shimmer-line line-title" />
+              <div className="shimmer-line line-p1" />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div ref={answerRef} className={`knowledge-answer ${result.found ? 'found' : 'not-found'}`}>
+            <span className="answer-icon">{result.found ? <BookOpen /> : <CircleHelp />}</span>
+            <div className="answer-content">
+              <div className="answer-badge-row">
+                <span className="verified-pill">
+                  <ShieldCheck size={13} /> {result.found ? 'Quy chuẩn đã xác thực (Verified Policy)' : 'Không tìm thấy nguồn'}
+                </span>
+                {result.mode === 'ai' && (
+                  <span className="diff-badge rag">
+                    <Sparkles size={11} /> AI Trợ lý
+                  </span>
+                )}
+              </div>
+              <h3 className="answer-heading">{result.answer}</h3>
+              {renderStructuredDetail(result.detail)}
+              {result.source ? (
+                <div className="source-card">
+                  <FileText />
+                  <div className="source-info">
+                    <strong>{result.source.title}</strong>
+                    <small>{result.source.section} · {result.source.updatedAt}</small>
+                  </div>
+                  <ChevronRight />
+                </div>
+              ) : (
+                <button type="button" className="contact-button" onClick={() => ask('Who is my People Partner & HR contact?')}>
+                  <UserRound /> Contact People Operations
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <p className="knowledge-guardrail">
           <ShieldCheck /> Answers are strictly grounded in approved Understood Enterprise Handbooks & Accessibility Charters. 0% Hallucination Guarantee.
         </p>
@@ -2509,9 +3023,28 @@ export default function App() {
   const [role, setRole] = useState<Role | null>(() => sessionStorage.getItem('understood-role') as Role | null);
   const [view, setView] = useState<View>('home');
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [managerAlert, setManagerAlert] = useState<ManagerAlert | null>(null);
+  const alertTimerRef = useRef<any>(null);
   const [notifications, setNotifications] = useState<{ title: string; time: string; type: string }[]>([
     { title: 'Session ADC-DEMO initialized', time: 'Just now', type: 'system' },
   ]);
+
+  const handleManagerAlert = (alert: ManagerAlert) => {
+    if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+    setManagerAlert(alert);
+    setNotifications((curr) => [
+      { title: `[${alert.badge}] ${alert.title}`, time: alert.time, type: alert.signal === 'understood' ? 'success' : 'warning' },
+      ...curr.slice(0, 10),
+    ]);
+    alertTimerRef.current = setTimeout(() => {
+      setManagerAlert(null);
+    }, 6500);
+  };
+
+  const dismissManagerAlert = () => {
+    if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+    setManagerAlert(null);
+  };
 
   const showToast = (message: string, type: Toast['type'] = 'info') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
@@ -2529,7 +3062,11 @@ export default function App() {
     setToasts((curr) => curr.filter((t) => t.id !== id));
   };
 
-  const { state, segments, command, emitTranscript, emitBarrier, emitPossibleTask, emitTaskUpdate } = useSharedDemo(role, showToast);
+  const { state, segments, command, emitTranscript, emitBarrier, emitPossibleTask, emitTaskUpdate } = useSharedDemo(
+    role,
+    showToast,
+    handleManagerAlert,
+  );
   const { preferences, save: savePreferences } = usePreferences(role);
 
   const content = useMemo(() => {
@@ -2590,6 +3127,8 @@ export default function App() {
       notifications={notifications}
       toasts={toasts}
       onDismissToast={dismissToast}
+      managerAlert={managerAlert}
+      onDismissManagerAlert={dismissManagerAlert}
       onExit={() => {
         sessionStorage.removeItem('understood-role');
         setRole(null);

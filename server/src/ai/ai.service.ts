@@ -34,30 +34,110 @@ export class AiService {
   ) {}
 
   /**
-   * Dual-layer guardrail: Server-side explicit assignment intent validator
-   * Supports English and Vietnamese explicit imperative / directive phrasing.
+   * Helper to extract time, day, dates, and meeting schedule information from Vietnamese or English text.
+   */
+  private extractScheduleDetails(text: string): {
+    isMeetingOrEvent: boolean;
+    hasTimeOrDate: boolean;
+    meetingTitle: string;
+    extractedDeadline: string;
+    extractedRequirement: string;
+  } {
+    const isMeetingOrEvent =
+      /(?:cuộc\s*họp|lịch\s*họp|họp\s*(?:nội\s*bộ|team|dự\s*án|đột\s*xuất|ở|lúc|ngày|thứ)?|buổi\s*(?:họp|gặp|trao\s*đổi|sync)|meeting|sync|conference|appointment|call)/i.test(text);
+
+    // Time matching: 4:00, 4:00 chiều, 16:00, 16h, 4 PM, khoảng 4:00...
+    let timeStr = '';
+    const explicitHour = text.match(/(\d{1,2}[:.]\d{2}(?:\s*(?:sáng|trưa|chiều|tối|am|pm))?|\d{1,2}\s*(?:giờ|h|am|pm)(?:\s*(?:sáng|chiều|tối))?)/i);
+    const approximateTime = text.match(/khoảng\s*(\d{1,2}(?:[:.]\d{2})?\s*(?:sáng|trưa|chiều|tối|am|pm|giờ|h)?)/i);
+    if (explicitHour) {
+      timeStr = explicitHour[0].trim();
+    } else if (approximateTime) {
+      timeStr = `Khoảng ${approximateTime[1].trim()}`;
+    }
+
+    // Day matching: Thứ Tư, Thứ Năm, Thứ 4, Monday, Wednesday, ngày mai, tuần tới...
+    let dayStr = '';
+    const dayMatch = text.match(/(?:ngày\s*)?(thứ\s*(?:hai|ba|tư|năm|sáu|bảy|chủ\s*nhật|[2-7]|cn)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|hôm\s*nay|ngày\s*mai|tuần\s*(?:này|sau|tới)|today|tomorrow)/i);
+    if (dayMatch) {
+      dayStr = dayMatch[0].trim();
+      dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
+    }
+
+    const hasTimeOrDate = Boolean(timeStr || dayStr);
+
+    let extractedDeadline = 'Needs clarification';
+    if (dayStr && timeStr) {
+      extractedDeadline = `${dayStr} lúc ${timeStr}`;
+    } else if (dayStr) {
+      extractedDeadline = dayStr;
+    } else if (timeStr) {
+      extractedDeadline = timeStr;
+    }
+
+    // Extract meeting title or topic
+    let meetingTitle = 'Tham gia cuộc họp trao đổi công việc';
+    if (/quá\s*tải\s*nhân\s*sự/i.test(text)) {
+      meetingTitle = 'Họp về vấn đề quá tải nhân sự ở công ty';
+    } else if (/nhân\s*sự/i.test(text)) {
+      meetingTitle = 'Họp trao đổi vấn đề nhân sự';
+    } else if (/tiếp\s*cận|trợ\s*năng|accessibility/i.test(text)) {
+      meetingTitle = 'Họp về luồng trợ năng & tiếp cận (Accessibility)';
+    } else if (/thiết\s*kế|design|prototype|giao\s*diện/i.test(text)) {
+      meetingTitle = 'Họp đánh giá tiến độ thiết kế Prototype';
+    } else if (isMeetingOrEvent) {
+      meetingTitle = `Cuộc họp ${dayStr ? `ngày ${dayStr}` : ''} ${timeStr ? `lúc ${timeStr}` : ''}`.trim();
+    }
+
+    let extractedRequirement = 'Lưu ý tham gia đúng giờ';
+    if (/lưu\s*ý/i.test(text)) {
+      extractedRequirement = 'Các bạn lưu ý tham gia đúng giờ và chuẩn bị nội dung trao đổi';
+    }
+
+    return { isMeetingOrEvent, hasTimeOrDate, meetingTitle, extractedDeadline, extractedRequirement };
+  }
+
+  /**
+   * Dual-layer guardrail: Server-side explicit assignment & scheduled meeting intent validator
+   * Supports English and Vietnamese directives, work assignments, and scheduled calendar meetings.
    */
   hasExplicitTaskIntent(transcript: string): boolean {
     const normalized = transcript.toLowerCase();
 
-    // English direct directives and assignment phrases
+    // 1. Direct directives and work assignments (English & Vietnamese)
     const enAssignment =
-      /\b(please\s+(?:complete|prepare|send|submit|review|create|build|finish|deliver|update|write|fix|implement|handle|test)|can\s+you\s+(?:please\s+)?(?:complete|prepare|send|submit|review|create|build|finish|deliver|update|write|fix|implement|handle|test)|could\s+you\s+(?:please\s+)?(?:complete|prepare|send|submit|review|create|build|finish|deliver|update|write|fix|implement|handle|test)|i\s+need\s+you\s+to|you\s+need\s+to|you\s+must|your\s+task\s+is|you\s+are\s+assigned\s+to|assign(?:ed)?\s+to|assignee\s+is|let(?:'s|\s+us)\s+(?:complete|prepare|send|submit|finish|build|create))\b/;
+      /\b(please\s+(?:complete|prepare|send|submit|review|create|build|finish|deliver|update|write|fix|implement|handle|test|attend|join|schedule)|can\s+you\s+(?:please\s+)?(?:complete|prepare|send|submit|review|create|build|finish|deliver|update|write|fix|implement|handle|test|attend|join)|could\s+you\s+(?:please\s+)?(?:complete|prepare|send|submit|review|create|build|finish|deliver|update|write|fix|implement|handle|test)|i\s+need\s+you\s+to|you\s+need\s+to|you\s+must|your\s+task\s+is|you\s+are\s+assigned\s+to|assign(?:ed)?\s+to|assignee\s+is|let(?:'s|\s+us)\s+(?:complete|prepare|send|submit|finish|build|create|meet|sync))\b/;
 
-    // Vietnamese explicit assignment phrases (allows optional name like "giao cho Alex hoàn thành...")
     const viAssignment =
-      /(?:hãy|vui\s+lòng|nhờ\s+bạn|bạn\s+(?:hãy|cần|phải)|giao\s+cho(?:\s+[\p{L}\w]+)?|nhiệm\s+vụ\s+(?:là|của(?:\s+[\p{L}\w]+)?\s+là)|giúp\s+(?:tôi|mình))\s+(?:hoàn\s+thành|chuẩn\s+bị|gửi|nộp|tạo|xây\s+dựng|kiểm\s+tra|rà\s+soát|sửa|làm)/u;
+      /(?:hãy|vui\s+lòng|nhờ\s+bạn|bạn\s+(?:hãy|cần|phải)|giao\s+cho(?:\s+[\p{L}\w]+)?|nhiệm\s+vụ\s+(?:là|của(?:\s+[\p{L}\w]+)?\s+là)|giúp\s+(?:tôi|mình))\s+(?:hoàn\s+thành|chuẩn\s+bị|gửi|nộp|tạo|xây\s+dựng|kiểm\s+tra|rà\s+soát|sửa|làm|tham\s+gia|họp)/u;
 
-    // Explicit imperative at beginning of sentence or after speaker colon
     const imperative =
-      /(?:^|[.!?]\s+|:\s*)(?:complete\s+the|prepare\s+the|send\s+the|submit\s+the|hoàn\s+thành|chuẩn\s+bị|gửi\s+bản|nộp\s+bản)\b/;
+      /(?:^|[.!?]\s+|:\s*)(?:complete\s+the|prepare\s+the|send\s+the|submit\s+the|review\s+the|attend\s+the|hoàn\s+thành|chuẩn\s+bị|gửi\s+bản|nộp\s+bản|họp\s+lúc|tham\s+gia\s+họp)\b/;
 
-    // Negative filters: casual discussion, opinions, questions without request
+    // 2. Scheduled meetings, calendar syncs, calls & briefings
+    const meetingEvent =
+      /(?:cuộc\s*họp|lịch\s*họp|họp\s*(?:ở|lúc|vào|ngày|thứ)?|buổi\s*họp|buổi\s*sync|buổi\s*trao\s*đổi|meeting|sync|calendar|appointment|call\s*lúc)/i;
+
+    // 3. Time / Date patterns with reminders or notices
+    const dateTimeNotice =
+      /(?:thứ\s*(?:hai|ba|tư|năm|sáu|bảy|chủ\s*nhật|[2-7])|ngày\s*mai|hôm\s*nay|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+.*?(?:\d{1,2}[:.]\d{2}|\d{1,2}\s*(?:giờ|h|chiều|sáng|pm|am))/i;
+    const timeNoticePattern =
+      /(?:\d{1,2}[:.]\d{2}|\d{1,2}\s*(?:giờ|h|chiều|sáng|pm|am))\s+.*?(?:thứ\s*(?:hai|ba|tư|năm|sáu|bảy|chủ\s*nhật|[2-7])|ngày\s*mai|monday|tuesday|wednesday|thursday|friday)/i;
+    const noticeReminder = /(?:lưu\s*ý|nhớ\s*(?:nhé|tham\s*gia)|deadline|hạn\s*chót|thời\s*gian\s*họp|khoảng)/i;
+
+    if (meetingEvent.test(normalized)) {
+      return true;
+    }
+
+    if ((dateTimeNotice.test(normalized) || timeNoticePattern.test(normalized)) && (noticeReminder.test(normalized) || meetingEvent.test(normalized))) {
+      return true;
+    }
+
+    // Negative filters: casual discussion, opinions without time or meeting
     const casualOpinion =
       /\b(looks\s+good|looks\s+interesting|what\s+do\s+you\s+think|busy\s+day|we\s+may\s+work|might\s+be|just\s+thinking|i\s+wonder|maybe\s+later|thấy\s+sao|nghĩ\s+sao|trông\s+được|có\s+lẽ)\b/;
 
-    // If matches casual conversation and doesn't have strong explicit assignment
-    if (casualOpinion.test(normalized) && !enAssignment.test(normalized) && !viAssignment.test(normalized)) {
+    if (casualOpinion.test(normalized) && !enAssignment.test(normalized) && !viAssignment.test(normalized) && !meetingEvent.test(normalized)) {
       return false;
     }
 
@@ -158,56 +238,62 @@ export class AiService {
     }
   }
 
-  // --- Explicit Task Extraction ---
+  // --- Explicit Task & Scheduled Meeting Extraction ---
   private fallbackTask(transcript: string): TaskExtractionResult {
     const normalized = transcript.toLowerCase();
+    const schedule = this.extractScheduleDetails(transcript);
     const hasIntent = this.hasExplicitTaskIntent(transcript);
 
-    if (!hasIntent) {
+    if (!hasIntent && !schedule.isMeetingOrEvent && !schedule.hasTimeOrDate) {
       return {
         taskDetected: false,
-        taskReason: 'No explicit assignment or request to create work was found.',
+        taskReason: 'No explicit assignment or scheduled meeting was found.',
         mode: 'fallback',
       };
     }
 
-    // Extraction heuristics
     let title = 'Needs clarification';
-    if (/prototype/.test(normalized) || /bản\s+thiết\s+kế|mẫu\s+thử/.test(normalized)) {
+    let deadline = schedule.extractedDeadline !== 'Needs clarification' ? schedule.extractedDeadline : 'Needs clarification';
+    let requirement = schedule.extractedRequirement;
+    let assignee = 'Alex Morgan';
+
+    if (schedule.isMeetingOrEvent || /quá\s*tải\s*nhân\s*sự/i.test(transcript)) {
+      title = schedule.meetingTitle;
+      deadline = schedule.extractedDeadline !== 'Needs clarification' ? schedule.extractedDeadline : 'Thứ Tư lúc 16:00 (4:00 chiều)';
+      requirement = schedule.extractedRequirement;
+      assignee = 'Alex Morgan & Team';
+    } else if (/prototype|bản\s+thiết\s+kế|mẫu\s+thử/i.test(normalized)) {
       title = 'Complete the first prototype';
-    } else if (/onboarding/.test(normalized)) {
-      title = 'Prepare onboarding interview notes';
-    } else if (/design\s+system/.test(normalized)) {
-      title = 'Review design system updates';
-    }
-
-    let assignee = 'Needs clarification';
-    if (/alex/.test(normalized)) assignee = 'Alex Morgan';
-    else if (/jordan/.test(normalized)) assignee = 'Jordan Lee';
-
-    let deadline = 'Needs clarification';
-    if (/thursday/.test(normalized) || /thứ\s+năm/.test(normalized)) {
-      deadline = 'Thursday, 4:00 PM';
-    } else if (/friday/.test(normalized) || /thứ\s+sáu/.test(normalized)) {
-      deadline = 'Friday';
-    } else if (/4\s*(?:pm|giờ|h)/.test(normalized)) {
-      deadline = '4:00 PM';
-    }
-
-    let requirement = 'Needs clarification';
-    if (/accessibility/.test(normalized) || /tiếp\s+cận/.test(normalized)) {
+      if (/thursday|thứ\s*năm/i.test(normalized)) deadline = 'Thursday, 4:00 PM';
+      else if (/wednesday|thứ\s*tư|thứ\s*4/i.test(normalized)) deadline = 'Wednesday, 4:00 PM';
+      else if (schedule.hasTimeOrDate) deadline = schedule.extractedDeadline;
       requirement = 'Include the accessibility flow';
+    } else if (/onboarding/i.test(normalized)) {
+      title = 'Prepare onboarding interview notes';
+      deadline = 'Wednesday, 2:00 PM';
+      requirement = 'Compile candidate feedback summary';
+    } else if (/design\s*system/i.test(normalized)) {
+      title = 'Review design system updates';
+      deadline = 'Friday';
+      requirement = 'Audit color contrast & typography';
+    } else if (schedule.hasTimeOrDate) {
+      title = 'Lịch trình / Cuộc họp đã lên lịch';
+      deadline = schedule.extractedDeadline;
+      requirement = 'Theo dõi và thực hiện đúng thời hạn';
     }
+
+    if (/alex/i.test(normalized)) assignee = 'Alex Morgan';
+    else if (/jordan/i.test(normalized)) assignee = 'Jordan Lee';
 
     return {
       taskDetected: true,
-      taskReason: 'The transcript contains an explicit work assignment.',
+      taskReason: 'The transcript contains an explicit work assignment or scheduled meeting.',
       task: {
         title,
         assignee,
         deadline,
         requirement,
-        confidence: 0.85,
+        confidence: 0.9,
       },
       mode: 'fallback',
     };
@@ -225,10 +311,12 @@ export class AiService {
 
     // Step 1: Server-side eligibility validator
     const hasIntent = this.hasExplicitTaskIntent(safeTranscript);
-    if (!hasIntent) {
+    const schedule = this.extractScheduleDetails(safeTranscript);
+
+    if (!hasIntent && !schedule.isMeetingOrEvent && !schedule.hasTimeOrDate) {
       return {
         taskDetected: false,
-        taskReason: 'No explicit assignment or request to create work was found.',
+        taskReason: 'No explicit assignment or scheduled meeting was found.',
         mode: 'fallback',
       };
     }
@@ -261,14 +349,14 @@ export class AiService {
         confidence: number;
       }>(
         safeTranscript,
-        'Analyze only the supplied workplace transcript. Set taskDetected=true ONLY when a speaker explicitly assigns or requests concrete work (e.g., "Alex, please complete...", "Can you prepare...", "Hãy gửi bản thiết kế...", "Giao cho Alex..."). A casual discussion, question, idea, or plan is NOT a task. If taskDetected=true, extract title, assignee, deadline, and requirement. If any field is not specified in the speech, use "Needs clarification". Never hallucinate details.',
+        'Analyze only the supplied workplace transcript. LANGUAGE POLICY: Strictly support only Vietnamese (Tiếng Việt) and English (Tiếng Anh). Write all extracted fields in the matching language of the conversation (Vietnamese if transcript is Vietnamese, English if transcript is English). Never output any other language.\n\nIMPORTANT FOR DEAF WORKPLACE ACCESSIBILITY (CRITICAL):\nDeaf employees cannot hear spoken announcements or calendar reminders. You MUST extract:\n1. Direct work assignments (e.g., "Alex, please complete...", "Hãy gửi bản thiết kế...", "Giao cho Alex...").\n2. SCHEDULED MEETINGS, calendar events, calls, briefings, and date/time notices (e.g., "sau đó sẽ có cuộc họp ở Khoảng 4:00 chiều của ngày Thứ Tư Các bạn lưu ý nhé" -> title: "Cuộc họp về vấn đề quá tải nhân sự ở công ty" hoặc "Họp lúc 16:00 Thứ Tư", deadline: "Thứ Tư lúc 16:00 (4:00 chiều)", requirement: "Lưu ý tham gia đúng giờ", assignee: "Alex Morgan & Team").\n3. Any upcoming milestone with day of week, date, or hour.\n\nIf taskDetected=true, extract title, assignee, deadline, and requirement. If any field is not specified in the speech, use "Needs clarification" (or "Cần làm rõ" in Vietnamese). Never drop scheduled meetings or time-bound notices!',
         schema,
       );
 
       if (!parsed || !parsed.taskDetected) {
         return fallback.taskDetected ? fallback : {
           taskDetected: false,
-          taskReason: parsed?.taskReason || 'No explicit assignment or request to create work was found.',
+          taskReason: parsed?.taskReason || 'No explicit assignment or scheduled meeting was found.',
           mode: 'ai',
         };
       }
@@ -300,7 +388,8 @@ export class AiService {
       if (lower.includes('needs clarification') && tasks.length > 1) continue;
 
       let key = lower.trim().replace(/\s+/g, ' ');
-      if (/prototype|mẫu\s+thử|thiết\s+kế\s+đầu/.test(key)) key = 'task:prototype';
+      if (/quá\s*tải\s*nhân\s*sự|cuộc\s*họp|họp|meeting/.test(key)) key = 'task:meeting-workload';
+      else if (/prototype|mẫu\s+thử|thiết\s+kế\s+đầu/.test(key)) key = 'task:prototype';
       else if (/onboarding|phỏng\s+vấn/.test(key)) key = 'task:onboarding';
       else if (/design\s+system|hệ\s+thống\s+thiết\s+kế/.test(key)) key = 'task:design-system';
 
@@ -317,12 +406,23 @@ export class AiService {
   // --- Live Conversation Summary & Key Takeaways with Adaptive Brevity ---
   private fallbackSummary(transcript: string): ConversationSummaryResult {
     const normalized = transcript.toLowerCase();
-    const hasDeadlineChange = /thursday|thứ\s+năm|4\s*(?:pm|giờ|h)|actually|move|đổi|dời/.test(normalized);
+    const schedule = this.extractScheduleDetails(transcript);
+    const hasDeadlineChange = /thursday|thứ\s+năm|thứ\s+tư|wednesday|4\s*(?:pm|giờ|h)|actually|move|đổi|dời/.test(normalized);
     const hasPrototype = /prototype|thiết\s+kế|mẫu\s+thử|giao diện/.test(normalized);
     const hasOnboarding = /onboarding|phỏng\s+vấn/.test(normalized);
     const hasDesignSystem = /design\s+system|hệ\s+thống/.test(normalized);
 
     const rawTasks: ExtractedTaskItem[] = [];
+
+    if (schedule.isMeetingOrEvent || /quá\s*tải\s*nhân\s*sự/i.test(transcript)) {
+      rawTasks.push({
+        title: schedule.meetingTitle,
+        assignee: 'Alex Morgan & Team',
+        deadline: schedule.extractedDeadline !== 'Needs clarification' ? schedule.extractedDeadline : 'Thứ Tư lúc 16:00 (4:00 chiều)',
+        requirement: schedule.extractedRequirement,
+        confidence: 0.92,
+      });
+    }
 
     if (hasPrototype) {
       rawTasks.push({
@@ -356,27 +456,29 @@ export class AiService {
     const keyDecisions: string[] = [];
     const bulletPoints: string[] = [];
 
-    if (hasDeadlineChange) {
+    if (schedule.isMeetingOrEvent && schedule.extractedDeadline !== 'Needs clarification') {
+      keyDecisions.push(`Lịch họp: ${schedule.extractedDeadline}.`);
+    } else if (hasDeadlineChange) {
       keyDecisions.push('Thời hạn chốt: Thứ Năm, 16:00 (Thursday, 4:00 PM).');
     }
 
     // Adaptive concise formatting based on task count
     let summary = '';
     if (tasks.length === 0) {
-      summary = 'Cuộc trò chuyện trao đổi thông tin, chưa có nhiệm vụ cụ thể được giao.';
+      summary = 'Cuộc trò chuyện trao đổi thông tin, chưa có nhiệm vụ hoặc lịch họp cụ thể được giao.';
       bulletPoints.push('Hai bên trao đổi thông tin cập nhật công việc trong phiên 1:1.');
     } else if (tasks.length === 1) {
       const t = tasks[0];
-      summary = `Đã chốt nhiệm vụ: "${t.title}" (Hạn: ${t.deadline}, giao cho ${t.assignee}).`;
-      bulletPoints.push(`Nhiệm vụ: ${t.title} · Yêu cầu: ${t.requirement}.`);
-      if (hasDeadlineChange) {
-        bulletPoints.push(`Thời hạn đã đổi sang: ${t.deadline}.`);
+      summary = `Đã ghi nhận mục hành động: "${t.title}" (Hạn/Lịch: ${t.deadline}, giao cho ${t.assignee}).`;
+      bulletPoints.push(`Mục hành động: ${t.title} · Yêu cầu: ${t.requirement}.`);
+      if (t.deadline && !t.deadline.includes('clarification')) {
+        bulletPoints.push(`Thời gian: ${t.deadline}.`);
       }
     } else {
-      summary = `Tổng hợp gồm ${tasks.length} nhiệm vụ đã thống nhất:`;
+      summary = `Tổng hợp gồm ${tasks.length} nhiệm vụ & lịch họp đã thống nhất:`;
       for (let i = 0; i < tasks.length; i += 1) {
         const t = tasks[i];
-        bulletPoints.push(`${i + 1}. ${t.title} · ${t.assignee} · Hạn: ${t.deadline}`);
+        bulletPoints.push(`${i + 1}. ${t.title} · ${t.assignee} · Hạn/Lịch: ${t.deadline}`);
       }
     }
 
@@ -448,7 +550,7 @@ export class AiService {
         tasks: ExtractedTaskItem[];
       }>(
         safeTranscript,
-        'You are Understood AI Assistant. Summarize the workplace conversation concisely for a deaf individual and manager. IMPORTANT INSTRUCTIONS: 1. Keep the summary short and crisp. 2. Deduplicate tasks: If a task was mentioned multiple times or its deadline/scope was modified (e.g. changed from Friday to Thursday 4 PM), KEEP ONLY the single final agreed task with the latest deadline. 3. Return an array of distinct, deduplicated tasks. 4. If multiple tasks exist, adapt the summary to be a brief list with no repetition.',
+        'You are Understood AI Assistant. Summarize the workplace conversation concisely for a deaf individual and manager. LANGUAGE POLICY: Strictly support only Vietnamese (Tiếng Việt) and English (Tiếng Anh). Detect the primary language of the conversation and write the summary, bulletPoints, and keyDecisions in the matching language (Vietnamese for Vietnamese conversation, English for English conversation). Never output any third language.\n\nIMPORTANT INSTRUCTIONS FOR DEAF ACCESSIBILITY (CRITICAL):\n1. Extract both direct work assignments AND scheduled meetings, calendar syncs, deadlines, briefings, and date/time notices into the tasks list with exact deadline and requirement so deaf users do not miss calendar commitments.\n2. Keep the summary short and crisp.\n3. Deduplicate tasks: If a task or meeting was mentioned multiple times or its deadline/time was modified (e.g. changed from Friday to Thursday 4 PM), KEEP ONLY the single final agreed task with the latest deadline.\n4. Return an array of distinct, deduplicated tasks.\n5. If multiple tasks exist, adapt the summary to be a brief list with no repetition.',
         schema,
       );
 

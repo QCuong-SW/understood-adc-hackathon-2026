@@ -1,10 +1,136 @@
-node_modules
-dist
+# ==============================================================================
+# Understood - Accessible Workplace Communication Copilot
+# Comprehensive Git Ignore Configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment & Secret Keys (CRITICAL - Never commit credentials/tokens)
+# ------------------------------------------------------------------------------
 .env
+.env.*
+*.env
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 .env.local
-*.log
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.cert
+*.crt
+
+# ------------------------------------------------------------------------------
+# 2. Dependencies & Package Managers
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+.pnpm-store/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# ------------------------------------------------------------------------------
+# 3. Production & Build Outputs
+# ------------------------------------------------------------------------------
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+.next/
+.nuxt/
+.cache/
 *.tsbuildinfo
+**/*.tsbuildinfo
 vite.config.js
 vite.config.d.ts
-.DS_Store
+
+# ------------------------------------------------------------------------------
+# 4. Local Database & Persistent Session Storage (Data privacy)
+# ------------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+data/
+**/data/
 server/data/
+storage/
+**/storage/
+
+# ------------------------------------------------------------------------------
+# 5. Logs & Diagnostic Dumps
+# ------------------------------------------------------------------------------
+logs/
+**/logs/
+*.log
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# 6. Operating System Artifacts
+# ------------------------------------------------------------------------------
+.DS_Store
+**/.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+
+# ------------------------------------------------------------------------------
+# 7. IDE & Editor Workspaces
+# ------------------------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.sublime-project
+*.sublime-workspace
+
+# ------------------------------------------------------------------------------
+# 8. Testing, Coverage & Temp Files
+# ------------------------------------------------------------------------------
+coverage/
+**/coverage/
+.nyc_output/
+.temp/
+.tmp/
+tmp/
+*.tmp
+.eslintcache
+.turbo/
+.parcel-cache/
+
+# ------------------------------------------------------------------------------
+# 9. AI Assistants & Scratch Files
+# ------------------------------------------------------------------------------
+.gemini/
+**/.gemini/
+.cursor/
+.claude/
+scratch/
