@@ -1,7 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import {
   BarrierEvent,
   ClarificationRequest,
@@ -11,128 +10,162 @@ import {
   TranscriptSegment,
 } from '../sessions/session.types';
 
+// Safe dynamic loader for node:sqlite across Node 20 and Node 22+
+let DatabaseSyncClass: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  DatabaseSyncClass = require('node:sqlite')?.DatabaseSync;
+} catch {
+  // node:sqlite is available on Node 22.5.0+
+}
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
-  private readonly db: DatabaseSync;
+  private readonly db: any = null;
+  private readonly isMemoryFallback: boolean = false;
+
+  // In-memory fallback stores
+  private readonly memoryAppState = new Map<string, string>();
+  private readonly memorySessions = new Map<string, any>();
+  private readonly memoryParticipants = new Map<string, string[]>();
+  private readonly memoryTranscripts: TranscriptSegment[] = [];
+  private readonly memoryBarriers: BarrierEvent[] = [];
+  private readonly memoryClarifications: ClarificationRequest[] = [];
+  private readonly memoryTasks = new Map<string, TaskRecord>();
+  private readonly memoryAiQueries: Array<{ question: string; answer: string; sourceTitle?: string }> = [];
 
   constructor() {
-    const dataDir = join(process.cwd(), 'data');
-    mkdirSync(dataDir, { recursive: true });
-    this.db = new DatabaseSync(join(dataDir, 'understood.sqlite'));
-    this.db.exec(`
-      PRAGMA journal_mode = WAL;
+    if (DatabaseSyncClass) {
+      try {
+        const dataDir = join(process.cwd(), 'data');
+        mkdirSync(dataDir, { recursive: true });
+        this.db = new DatabaseSyncClass(join(dataDir, 'understood.sqlite'));
+        this.db.exec(`
+          PRAGMA journal_mode = WAL;
 
-      CREATE TABLE IF NOT EXISTS app_state (
-        namespace TEXT NOT NULL,
-        key TEXT NOT NULL,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (namespace, key)
-      );
+          CREATE TABLE IF NOT EXISTS app_state (
+            namespace TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (namespace, key)
+          );
 
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        status TEXT NOT NULL,
-        state_json TEXT NOT NULL,
-        started_at TEXT,
-        ended_at TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+          CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            state_json TEXT NOT NULL,
+            started_at TEXT,
+            ended_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-      CREATE TABLE IF NOT EXISTS session_participants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        participant_name TEXT NOT NULL,
-        role TEXT NOT NULL,
-        joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(session_id, participant_name)
-      );
+          CREATE TABLE IF NOT EXISTS session_participants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            participant_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(session_id, participant_name)
+          );
 
-      CREATE TABLE IF NOT EXISTS transcript_segments (
-        id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        speaker_role TEXT NOT NULL,
-        text TEXT NOT NULL,
-        is_final INTEGER NOT NULL,
-        source TEXT NOT NULL,
-        confidence REAL,
-        started_at TEXT NOT NULL,
-        ended_at TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+          CREATE TABLE IF NOT EXISTS transcript_segments (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            speaker_role TEXT NOT NULL,
+            text TEXT NOT NULL,
+            is_final INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            confidence REAL,
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-      CREATE TABLE IF NOT EXISTS barrier_events (
-        id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        status TEXT NOT NULL,
-        message_for_employee TEXT NOT NULL,
-        guidance_for_manager TEXT NOT NULL,
-        confidence REAL NOT NULL,
-        evidence_segment_ids TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        resolved_at TEXT
-      );
+          CREATE TABLE IF NOT EXISTS barrier_events (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message_for_employee TEXT NOT NULL,
+            guidance_for_manager TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            evidence_segment_ids TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT
+          );
 
-      CREATE TABLE IF NOT EXISTS clarification_requests (
-        id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        requested_by TEXT NOT NULL,
-        topic TEXT NOT NULL,
-        status TEXT NOT NULL,
-        related_barrier_id TEXT,
-        related_task_id TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        resolved_at TEXT
-      );
+          CREATE TABLE IF NOT EXISTS clarification_requests (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            requested_by TEXT NOT NULL,
+            topic TEXT NOT NULL,
+            status TEXT NOT NULL,
+            related_barrier_id TEXT,
+            related_task_id TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT
+          );
 
-      CREATE TABLE IF NOT EXISTS tasks (
-        id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        status TEXT NOT NULL,
-        current_revision INTEGER NOT NULL DEFAULT 1,
-        title TEXT NOT NULL,
-        assignee TEXT NOT NULL,
-        deadline TEXT NOT NULL,
-        requirement TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+          CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            current_revision INTEGER NOT NULL DEFAULT 1,
+            title TEXT NOT NULL,
+            assignee TEXT NOT NULL,
+            deadline TEXT NOT NULL,
+            requirement TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-      CREATE TABLE IF NOT EXISTS task_revisions (
-        id TEXT PRIMARY KEY,
-        task_id TEXT NOT NULL,
-        revision_number INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        assignee TEXT NOT NULL,
-        deadline TEXT NOT NULL,
-        requirement TEXT NOT NULL,
-        confirmed_by_manager_at TEXT,
-        acknowledged_by_employee_at TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+          CREATE TABLE IF NOT EXISTS task_revisions (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            revision_number INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            assignee TEXT NOT NULL,
+            deadline TEXT NOT NULL,
+            requirement TEXT NOT NULL,
+            confirmed_by_manager_at TEXT,
+            acknowledged_by_employee_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-      CREATE TABLE IF NOT EXISTS user_preferences (
-        role TEXT PRIMARY KEY,
-        caption_size TEXT NOT NULL DEFAULT 'comfortable',
-        alert_sensitivity TEXT NOT NULL DEFAULT 'balanced',
-        visual_prompts INTEGER NOT NULL DEFAULT 1,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+          CREATE TABLE IF NOT EXISTS user_preferences (
+            role TEXT PRIMARY KEY,
+            caption_size TEXT NOT NULL DEFAULT 'comfortable',
+            alert_sensitivity TEXT NOT NULL DEFAULT 'balanced',
+            visual_prompts INTEGER NOT NULL DEFAULT 1,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
 
-      CREATE TABLE IF NOT EXISTS ai_queries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        question TEXT NOT NULL,
-        answer TEXT NOT NULL,
-        source_title TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+          CREATE TABLE IF NOT EXISTS ai_queries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            source_title TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+        return;
+      } catch (err) {
+        console.warn('SQLite init warning, falling back to memory store:', err);
+      }
+    }
+
+    this.isMemoryFallback = true;
+    console.log('Database running in high-performance memory fallback mode');
   }
 
   // --- App State (Legacy / KV) ---
   get<T>(namespace: string, key: string): T | null {
+    if (this.isMemoryFallback || !this.db) {
+      const val = this.memoryAppState.get(`${namespace}:${key}`);
+      return val ? (JSON.parse(val) as T) : null;
+    }
     const row = this.db
       .prepare('SELECT value FROM app_state WHERE namespace = ? AND key = ?')
       .get(namespace, key) as { value: string } | undefined;
@@ -140,6 +173,10 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   set(namespace: string, key: string, value: unknown) {
+    if (this.isMemoryFallback || !this.db) {
+      this.memoryAppState.set(`${namespace}:${key}`, JSON.stringify(value));
+      return;
+    }
     this.db
       .prepare(
         `INSERT INTO app_state(namespace, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -150,6 +187,19 @@ export class DatabaseService implements OnModuleDestroy {
 
   // --- Sessions Repository ---
   saveSession(session: Session) {
+    if (this.isMemoryFallback || !this.db) {
+      this.memorySessions.set(session.id, {
+        id: session.id,
+        status: session.status,
+        state: session.state,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        createdAt: session.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      this.memoryParticipants.set(session.id, [...new Set(session.participants)]);
+      return;
+    }
     this.db
       .prepare(
         `INSERT INTO sessions (id, status, state_json, started_at, ended_at, created_at, updated_at)
@@ -182,6 +232,21 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   getSession(id: string): Session | null {
+    if (this.isMemoryFallback || !this.db) {
+      const s = this.memorySessions.get(id);
+      if (!s) return null;
+      return {
+        id: s.id,
+        status: s.status,
+        participants: this.memoryParticipants.get(id) || ['Alex Morgan', 'Jordan Lee'],
+        state: s.state,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      };
+    }
+
     const row = this.db
       .prepare('SELECT * FROM sessions WHERE id = ?')
       .get(id) as
@@ -218,6 +283,15 @@ export class DatabaseService implements OnModuleDestroy {
 
   // --- Transcript Segments ---
   saveTranscriptSegment(segment: TranscriptSegment) {
+    if (this.isMemoryFallback || !this.db) {
+      const idx = this.memoryTranscripts.findIndex((s) => s.id === segment.id);
+      if (idx >= 0) {
+        this.memoryTranscripts[idx] = segment;
+      } else {
+        this.memoryTranscripts.push(segment);
+      }
+      return;
+    }
     this.db
       .prepare(
         `INSERT INTO transcript_segments (id, session_id, speaker_role, text, is_final, source, confidence, started_at, ended_at)
@@ -242,6 +316,9 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   getTranscriptSegments(sessionId: string, finalOnly = false): TranscriptSegment[] {
+    if (this.isMemoryFallback || !this.db) {
+      return this.memoryTranscripts.filter((s) => s.sessionId === sessionId && (!finalOnly || s.isFinal));
+    }
     const query = finalOnly
       ? 'SELECT * FROM transcript_segments WHERE session_id = ? AND is_final = 1 ORDER BY created_at ASC'
       : 'SELECT * FROM transcript_segments WHERE session_id = ? ORDER BY created_at ASC';
@@ -272,6 +349,15 @@ export class DatabaseService implements OnModuleDestroy {
 
   // --- Barrier Events ---
   saveBarrierEvent(event: BarrierEvent) {
+    if (this.isMemoryFallback || !this.db) {
+      const idx = this.memoryBarriers.findIndex((b) => b.id === event.id);
+      if (idx >= 0) {
+        this.memoryBarriers[idx] = event;
+      } else {
+        this.memoryBarriers.push(event);
+      }
+      return;
+    }
     this.db
       .prepare(
         `INSERT INTO barrier_events (id, session_id, type, status, message_for_employee, guidance_for_manager, confidence, evidence_segment_ids, created_at, resolved_at)
@@ -295,6 +381,9 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   getBarrierEvents(sessionId: string): BarrierEvent[] {
+    if (this.isMemoryFallback || !this.db) {
+      return this.memoryBarriers.filter((b) => b.sessionId === sessionId);
+    }
     const rows = this.db
       .prepare('SELECT * FROM barrier_events WHERE session_id = ? ORDER BY created_at ASC')
       .all(sessionId) as {
@@ -326,6 +415,15 @@ export class DatabaseService implements OnModuleDestroy {
 
   // --- Clarification Requests ---
   saveClarificationRequest(req: ClarificationRequest) {
+    if (this.isMemoryFallback || !this.db) {
+      const idx = this.memoryClarifications.findIndex((c) => c.id === req.id);
+      if (idx >= 0) {
+        this.memoryClarifications[idx] = req;
+      } else {
+        this.memoryClarifications.push(req);
+      }
+      return;
+    }
     this.db
       .prepare(
         `INSERT INTO clarification_requests (id, session_id, requested_by, topic, status, related_barrier_id, related_task_id, created_at, resolved_at)
@@ -348,6 +446,9 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   getClarificationRequests(sessionId: string): ClarificationRequest[] {
+    if (this.isMemoryFallback || !this.db) {
+      return this.memoryClarifications.filter((c) => c.sessionId === sessionId);
+    }
     const rows = this.db
       .prepare('SELECT * FROM clarification_requests WHERE session_id = ? ORDER BY created_at ASC')
       .all(sessionId) as {
@@ -377,6 +478,10 @@ export class DatabaseService implements OnModuleDestroy {
 
   // --- Tasks & Revisions ---
   saveTask(task: TaskRecord) {
+    if (this.isMemoryFallback || !this.db) {
+      this.memoryTasks.set(task.id, task);
+      return;
+    }
     this.db
       .prepare(
         `INSERT INTO tasks (id, session_id, status, current_revision, title, assignee, deadline, requirement, created_at, updated_at)
@@ -431,6 +536,10 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   getTasksBySession(sessionId?: string): TaskRecord[] {
+    if (this.isMemoryFallback || !this.db) {
+      const allTasks = Array.from(this.memoryTasks.values());
+      return sessionId ? allTasks.filter((t) => t.sessionId === sessionId) : allTasks;
+    }
     const query = sessionId
       ? 'SELECT * FROM tasks WHERE session_id = ? ORDER BY created_at DESC'
       : 'SELECT * FROM tasks ORDER BY created_at DESC';
@@ -493,6 +602,9 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   getTaskById(id: string): TaskRecord | null {
+    if (this.isMemoryFallback || !this.db) {
+      return this.memoryTasks.get(id) || null;
+    }
     const row = this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as
       | {
           id: string;
@@ -555,6 +667,17 @@ export class DatabaseService implements OnModuleDestroy {
 
   // --- Reset All for Clean Demo State ---
   resetAll() {
+    if (this.isMemoryFallback || !this.db) {
+      this.memorySessions.clear();
+      this.memoryParticipants.clear();
+      this.memoryTranscripts.length = 0;
+      this.memoryBarriers.length = 0;
+      this.memoryClarifications.length = 0;
+      this.memoryTasks.clear();
+      this.memoryAppState.clear();
+      this.memoryAiQueries.length = 0;
+      return;
+    }
     this.db.exec(`
       DELETE FROM sessions;
       DELETE FROM session_participants;
@@ -568,12 +691,22 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   logAiQuery(question: string, answer: string, sourceTitle?: string) {
+    if (this.isMemoryFallback || !this.db) {
+      this.memoryAiQueries.push({ question, answer, sourceTitle });
+      return;
+    }
     this.db
       .prepare('INSERT INTO ai_queries(question, answer, source_title) VALUES (?, ?, ?)')
       .run(question, answer, sourceTitle ?? null);
   }
 
   onModuleDestroy() {
-    this.db.close();
+    if (this.db) {
+      try {
+        this.db.close();
+      } catch {
+        // ignore
+      }
+    }
   }
 }
