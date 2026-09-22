@@ -2,6 +2,9 @@
   "name": "understood-realtime-server",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "start:dev": "nest start --watch",
     "build": "nest build",
