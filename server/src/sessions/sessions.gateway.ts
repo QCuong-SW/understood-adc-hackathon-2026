@@ -142,6 +142,11 @@ export class SessionsGateway implements OnGatewayConnection {
     },
   ) {
     const result = this.sessions.sendCommunicationSignal(payload.sessionId, payload.role, payload.signal);
+    this.server.to(`session:${payload.sessionId}`).emit('communication:signal', {
+      signal: payload.signal,
+      senderRole: payload.role,
+      timestamp: new Date().toISOString(),
+    });
     if (result.accepted) this.broadcastState(payload.sessionId);
     return { ok: result.accepted };
   }
