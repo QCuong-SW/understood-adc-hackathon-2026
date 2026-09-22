@@ -415,7 +415,7 @@ html{scrollbar-gutter:stable;overflow-y:scroll}
   position: relative;
 }
 
-/* 1. Tin nhắn của đối phương (Bên trái / Left Aligned) */
+/* 1. Counterpart / Other speaker messages (Left Aligned) */
 .transcript-turn.is-other {
   align-self: flex-start;
   margin-right: auto;
@@ -479,7 +479,7 @@ html{scrollbar-gutter:stable;overflow-y:scroll}
   color: #1e293b;
 }
 
-/* 2. Tin nhắn của chính mình / Chủ sở hữu (Bên phải / Right Aligned, Màu cam vừa đủ) */
+/* 2. Self / User messages (Right Aligned, Warm Orange theme) */
 .transcript-turn.is-self {
   align-self: flex-end;
   margin-left: auto;
@@ -540,7 +540,7 @@ html{scrollbar-gutter:stable;overflow-y:scroll}
   margin-right: 2px;
 }
 
-/* Bong bóng tin nhắn màu cam vừa đủ, sang trọng và rất êm mắt */
+/* Self message bubble with warm readable gradient */
 .transcript-turn.is-self .turn-bubble {
   background: linear-gradient(135deg, #fff8f0 0%, #ffeedd 100%);
   border: 1.5px solid #fed7aa;
