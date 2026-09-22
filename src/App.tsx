@@ -1148,6 +1148,7 @@ function SessionView({
   preferences,
   onViewTasks,
   onToast,
+  onGoHome,
 }: {
   role: Role;
   state: SharedState;
@@ -1160,6 +1161,7 @@ function SessionView({
   preferences: CommunicationPreferences;
   onViewTasks: () => void;
   onToast: (msg: string, type: Toast['type']) => void;
+  onGoHome?: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -1548,7 +1550,11 @@ function SessionView({
   if (state.step === 'idle') {
     return (
       <div className="empty-session">
-        <button className="back-link"><ArrowLeft size={17} /> Overview</button>
+        {onGoHome && (
+          <button className="back-link" onClick={onGoHome} type="button">
+            <ArrowLeft size={16} /> Overview
+          </button>
+        )}
         <div className="preflight-card">
           <span className="preflight-icon"><Mic /></span>
           <p className="eyebrow-text">Session ADC-DEMO</p>
@@ -3100,6 +3106,7 @@ export default function App() {
           preferences={preferences}
           onViewTasks={() => setView('tasks')}
           onToast={showToast}
+          onGoHome={() => setView('home')}
         />
       );
     }
