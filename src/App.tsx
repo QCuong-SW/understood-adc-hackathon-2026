@@ -635,7 +635,7 @@ function usePreferences(role: Role | null) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="brand" aria-label="Understood">
-      <span className="brand-mark"><Volume2 size={compact ? 18 : 22} strokeWidth={2.6} /></span>
+      <img src="/logo.png" alt="Understood" className={`brand-logo-img ${compact ? 'compact' : ''}`} />
       {!compact && <span>understood<span className="brand-dot">.</span></span>}
     </div>
   );
@@ -1148,6 +1148,7 @@ function SessionView({
   preferences,
   onViewTasks,
   onToast,
+  onGoHome,
 }: {
   role: Role;
   state: SharedState;
@@ -1160,6 +1161,7 @@ function SessionView({
   preferences: CommunicationPreferences;
   onViewTasks: () => void;
   onToast: (msg: string, type: Toast['type']) => void;
+  onGoHome?: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -1529,6 +1531,7 @@ function SessionView({
         });
         onToast('AI đã hoàn tất tóm tắt cuộc trò chuyện.', 'info');
       }
+      setMobileTaskOpen(true);
     } catch {
       onToast('Dịch vụ AI tóm tắt tạm thời bận, vui lòng thử lại.', 'warning');
     } finally {
@@ -1548,7 +1551,11 @@ function SessionView({
   if (state.step === 'idle') {
     return (
       <div className="empty-session">
-        <button className="back-link"><ArrowLeft size={17} /> Overview</button>
+        {onGoHome && (
+          <button className="back-link" onClick={onGoHome} type="button">
+            <ArrowLeft size={16} /> Overview
+          </button>
+        )}
         <div className="preflight-card">
           <span className="preflight-icon"><Mic /></span>
           <p className="eyebrow-text">Session ADC-DEMO</p>
@@ -1793,17 +1800,17 @@ function SessionView({
         ) : (
           <div className={`task-card ${confirmed ? 'confirmed' : ''}`}>
             <div className="task-card-top">
-              <span><Sparkles /> {confirmed ? 'Confirmed task' : state.step === 'taskClarification' ? 'Clarification requested' : state.step === 'managerConfirmed' ? 'Manager confirmed' : 'Possible task detected'}</span>
-              <span className={confirmed ? 'status-dot green' : 'status-dot'}>{confirmed ? 'Confirmed' : state.step === 'managerConfirmed' ? 'Awaiting employee' : state.step === 'taskClarification' ? 'Needs revision' : 'Awaiting manager'}</span>
+              <span><Sparkles /> {confirmed ? 'Confirmed task' : state.step === 'taskClarification' ? 'Clarification requested' : state.step === 'managerConfirmed' ? 'Manager confirmed' : 'AI task extracted'}</span>
+              <span className={confirmed ? 'status-dot green' : 'status-dot'}>{confirmed ? 'Confirmed' : state.step === 'taskClarification' ? 'Needs revision' : 'Ready to confirm'}</span>
             </div>
             <dl>
               <div><dt>Task</dt><dd>{state.taskTitle}</dd></div>
               <div><dt>Assignee</dt><dd>{state.assignee || 'Alex Morgan'}</dd></div>
-              <div><dt>Deadline</dt><dd>{state.deadline}</dd><small className="change-note">Updated from Friday</small></div>
+              <div><dt>Deadline</dt><dd>{state.deadline}</dd><small className="change-note">Updated from speech</small></div>
               <div><dt>Requirement</dt><dd>{state.requirement}</dd></div>
             </dl>
 
-            {role === 'manager' && (state.step === 'task' || state.step === 'taskClarification') && (
+            {!confirmed && role === 'manager' && (
               <>
                 <div className={state.step === 'taskClarification' ? 'clarification-note' : 'clarification-note hidden'}>
                   <CircleHelp /> Alex requested clarification about: <strong>{state.clarificationTopic || 'Deadline'}</strong>
@@ -1815,7 +1822,7 @@ function SessionView({
                     onClick={() => {
                       command('task:manager-confirm');
                       emitTranscript(`Jordan confirmed Assignment (Revision ${(state.revision || 0) + 1}): "${state.taskTitle || 'Nhiệm vụ'}" · Due ${state.deadline || 'Chưa định ngày'}`, true, 'demo');
-                      onToast('Task revision confirmed by Manager', 'success');
+                      onToast('Task confirmed by Manager', 'success');
                     }}
                   >
                     <Check /> {state.step === 'taskClarification' ? 'Confirm revised task' : 'Confirm assignment'}
@@ -1824,33 +1831,36 @@ function SessionView({
               </>
             )}
 
-            {role === 'manager' && state.step === 'managerConfirmed' && (
-              <div className="waiting-note"><Clock3 /> Waiting for Alex to acknowledge revision {state.revision || 1}</div>
-            )}
-
-            {role === 'employee' && state.step === 'managerConfirmed' && (
-              <div className="ack-area">
-                <p><CheckCircle2 /> Jordan confirmed revision {state.revision || 1}. Does it match your understanding?</p>
-                <button className="secondary-button" onClick={() => setClarifyOpen('task')}>Request clarification</button>
-                <button
-                  className="primary-button"
-                  onClick={() => {
-                    command('task:employee-acknowledge');
-                    emitTranscript(`Alex acknowledged & accepted: "${state.taskTitle || 'Nhiệm vụ'}" (Mutually confirmed)`, true, 'demo');
-                    onToast('Task mutually confirmed and accepted', 'success');
-                  }}
-                >
-                  <Check /> Understood & accept
-                </button>
+            {!confirmed && role === 'employee' && (
+              <div className="ack-area" style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', gap: 6, width: '100%' }}>
+                  <button className="secondary-button" style={{ flex: 1 }} onClick={() => setClarifyOpen('task')}>
+                    <CircleHelp size={14} /> Clarify
+                  </button>
+                  <button className="secondary-button" style={{ flex: 1 }} onClick={() => { setDraft(state); setEditOpen(true); }}>
+                    Edit
+                  </button>
+                  <button
+                    className="primary-button"
+                    style={{ flex: 2 }}
+                    onClick={() => {
+                      command('task:employee-acknowledge');
+                      emitTranscript(`Alex acknowledged & confirmed task: "${state.taskTitle || 'Nhiệm vụ'}" (Mutually agreed)`, true, 'demo');
+                      onToast('Task acknowledged & confirmed successfully', 'success');
+                    }}
+                  >
+                    <Check size={14} /> Understood & accept
+                  </button>
+                </div>
               </div>
             )}
 
             {role === 'employee' && state.step === 'taskClarification' && (
-              <div className="waiting-note"><Clock3 /> Clarification sent · waiting for Jordan to revise</div>
+              <div className="waiting-note"><Clock3 /> Clarification sent · waiting for response</div>
             )}
 
             {confirmed && (
-              <div className="confirmed-note"><CheckCircle2 /> Manager confirmed · Alex acknowledged (Revision {state.revision || 1})</div>
+              <div className="confirmed-note"><CheckCircle2 /> Mutually confirmed · Traceable & synchronized (Revision {state.revision || 1})</div>
             )}
           </div>
         )
@@ -2286,7 +2296,7 @@ function SessionView({
         <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Edit task">
           <div className="modal">
             <div className="modal-head">
-              <div><span className="section-kicker">Manager review</span><h2>Edit possible task</h2></div>
+              <div><span className="section-kicker">Task details</span><h2>Edit task</h2></div>
               <button onClick={() => setEditOpen(false)} aria-label="Close"><X /></button>
             </div>
             <label>Task<input value={draft.taskTitle} onChange={(e) => setDraft({ ...draft, taskTitle: e.target.value })} /></label>
@@ -3100,6 +3110,7 @@ export default function App() {
           preferences={preferences}
           onViewTasks={() => setView('tasks')}
           onToast={showToast}
+          onGoHome={() => setView('home')}
         />
       );
     }
