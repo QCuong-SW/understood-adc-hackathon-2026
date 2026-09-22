@@ -227,9 +227,9 @@ function createManagerAlert(signal: string, topic?: string): ManagerAlert {
     return {
       id,
       signal: 'understood',
-      title: 'Alex đã hiểu rõ (Understood)',
-      detail: 'Alex đã nắm bắt kịp tiến độ và hiểu rõ nội dung vừa trao đổi. Hãy tiếp tục chia sẻ!',
-      badge: 'ĐÃ HIỂU RÕ',
+      title: 'Alex understood (Understood)',
+      detail: 'Alex is following along well and understands the discussion. Keep going!',
+      badge: 'UNDERSTOOD',
       sender,
       time,
       theme: 'emerald',
@@ -238,9 +238,9 @@ function createManagerAlert(signal: string, topic?: string): ManagerAlert {
     return {
       id,
       signal: 'slow-down',
-      title: 'Alex: Xin hãy nói chậm lại (Slow down)',
-      detail: 'Alex đề nghị bạn giảm tốc độ nói hoặc ngắt nghỉ 2-3 giây sau mỗi câu để kịp theo dõi.',
-      badge: 'NÓI CHẬM LẠI',
+      title: 'Alex: Please slow down',
+      detail: 'Alex requested reducing speaking pace or pausing 2-3 seconds between sentences to keep up.',
+      badge: 'SLOW DOWN',
       sender,
       time,
       theme: 'amber',
@@ -249,25 +249,25 @@ function createManagerAlert(signal: string, topic?: string): ManagerAlert {
     return {
       id,
       signal: 'repeat',
-      title: 'Alex: Xin nhắc lại ý vừa nói (Repeat)',
-      detail: 'Alex chưa nghe rõ hoặc chưa kịp ghi nhận ý vừa trao đổi, xin được nghe nhắc lại ngắn gọn.',
-      badge: 'NHẮC LẠI',
+      title: 'Alex: Please repeat',
+      detail: 'Alex missed the last point and requested a brief repetition.',
+      badge: 'REPEAT',
       sender,
       time,
       theme: 'blue',
     };
   } else {
     const topicLabel =
-      topic === 'DEADLINE' ? 'Hạn chót (Deadline)' :
-      topic === 'REQUIREMENT' ? 'Yêu cầu (Requirements)' :
-      topic === 'TASK' ? 'Nhiệm vụ cụ thể' :
-      (topic || 'Nội dung công việc');
+      topic === 'DEADLINE' ? 'Deadline' :
+      topic === 'REQUIREMENT' ? 'Requirements' :
+      topic === 'TASK' ? 'Task details' :
+      (topic || 'Discussion topic');
     return {
       id,
       signal: 'clarify',
-      title: `Alex yêu cầu làm rõ: ${topicLabel}`,
-      detail: `Alex cần bạn xác nhận lại chi tiết về "${topicLabel}" để tránh hiểu nhầm.`,
-      badge: 'CẦN LÀM RÕ',
+      title: `Alex requested clarification: ${topicLabel}`,
+      detail: `Alex needs confirmation on "${topicLabel}" to prevent misunderstanding.`,
+      badge: 'CLARIFICATION NEEDED',
       sender,
       time,
       topic,
@@ -679,10 +679,10 @@ const navItems: { id: View; label: string; icon: typeof Home }[] = [
 ];
 
 const mobileNavItems: { id: View; label: string; icon: typeof Home }[] = [
-  { id: 'home', label: 'Tổng quan', icon: Home },
-  { id: 'session', label: 'Họp Live', icon: Mic },
-  { id: 'tasks', label: 'Nhiệm vụ', icon: LayoutList },
-  { id: 'settings', label: 'Cài đặt', icon: Settings },
+  { id: 'home', label: 'Overview', icon: Home },
+  { id: 'session', label: 'Live Session', icon: Mic },
+  { id: 'tasks', label: 'Tasks', icon: LayoutList },
+  { id: 'settings', label: 'Preferences', icon: Settings },
 ];
 
 function ManagerHeadsUpBanner({
@@ -730,16 +730,16 @@ function ManagerHeadsUpBanner({
             type="button"
             className="manager-alert-ack-btn"
             onClick={onDismiss}
-            title="Đã ghi nhận phản hồi từ Alex"
+            title="Acknowledge feedback from Alex"
           >
             <Check size={14} />
-            <span>Đã biết</span>
+            <span>Got it</span>
           </button>
           <button
             type="button"
             className="manager-alert-close-btn"
             onClick={onDismiss}
-            aria-label="Đóng thông báo"
+            aria-label="Dismiss alert"
           >
             <X size={15} />
           </button>
@@ -1021,7 +1021,7 @@ function useRealtimeVoice(
     const Recognition = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
     if (!Recognition) {
       setStatus('error');
-      setError('Trình duyệt chưa hỗ trợ Web Speech API. Vui lòng sử dụng Chrome, Edge hoặc Safari.');
+      setError('Web Speech API is not supported in this browser. Please use Chrome, Edge, or Safari.');
       return;
     }
 
@@ -1035,7 +1035,7 @@ function useRealtimeVoice(
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
-      recognition.lang = langRef.current || 'vi-VN';
+      recognition.lang = langRef.current || 'en-US';
 
       recognition.onstart = () => {
         setStatus('live');
@@ -1071,10 +1071,10 @@ function useRealtimeVoice(
         }
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           isListeningRef.current = false;
-          setError('Quyền truy cập Microphone bị từ chối. Vui lòng cho phép quyền Micro trong trình duyệt.');
+          setError('Microphone access was denied. Please allow microphone permissions in your browser.');
           setStatus('error');
         } else if (event.error === 'network') {
-          setError('Lỗi kết nối mạng nhận diện giọng nói.');
+          setError('Speech recognition network error.');
         }
       };
 
@@ -1104,7 +1104,7 @@ function useRealtimeVoice(
     } catch (err: any) {
       isListeningRef.current = false;
       setStatus('error');
-      setError(err?.message || 'Không thể mở Microphone');
+      setError(err?.message || 'Unable to start microphone');
     }
   };
 
@@ -1267,7 +1267,7 @@ function SessionView({
       requirement: task.requirement,
     });
     setTaskViewMode('focus');
-    onToast(`Đã chuyển tiêu điểm sang: "${task.title}"`, 'info');
+    onToast(`Focused on task: "${task.title}"`, 'info');
   };
 
   const handleBatchConfirmAll = () => {
@@ -1276,7 +1276,7 @@ function SessionView({
     command('task:manager-confirm');
     command('task:employee-acknowledge');
     emitTranscript(`Jordan confirmed & Alex acknowledged all ${sessionTasks.length} session tasks (Mutually confirmed).`, true, 'demo');
-    onToast(`Đã đồng thuận & xác nhận tất cả ${sessionTasks.length} nhiệm vụ!`, 'success');
+    onToast(`All ${sessionTasks.length} tasks mutually confirmed & agreed!`, 'success');
   };
 
   const handleQuickConfirmSingleTask = (taskId: string) => {
@@ -1284,17 +1284,17 @@ function SessionView({
     updateAndBroadcastTasks(next);
     const item = sessionTasks.find((t) => t.id === taskId);
     emitTranscript(`Mutually confirmed task: "${item?.title || 'Assignment'}" · Due ${item?.deadline}`, true, 'demo');
-    onToast(`Đã xác nhận nhiệm vụ: "${item?.title}"`, 'success');
+    onToast(`Confirmed task: "${item?.title}"`, 'success');
   };
 
   const handleRemoveTask = (taskId: string) => {
     if (sessionTasks.length <= 1) {
-      onToast('Cần duy trì ít nhất 1 nhiệm vụ trong phiên', 'warning');
+      onToast('At least 1 task must remain in the session', 'warning');
       return;
     }
     const next = sessionTasks.filter((t) => t.id !== taskId);
     updateAndBroadcastTasks(next);
-    onToast('Đã loại trừ nhiệm vụ khỏi danh sách', 'info');
+    onToast('Task removed from session list', 'info');
   };
 
   const handleApplyAiTasksToSession = (aiTasks: ExtractedTaskItem[]) => {
@@ -1316,13 +1316,13 @@ function SessionView({
       requirement: newItems[0].requirement,
     });
     setTaskViewMode('list');
-    onToast(`Đã tổng hợp ${newItems.length} nhiệm vụ vào danh sách cuộc họp!`, 'success');
+    onToast(`Added ${newItems.length} extracted tasks to the session!`, 'success');
   };
 
   const handleCreateNewTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskDraft.title.trim()) {
-      onToast('Vui lòng nhập tên nhiệm vụ', 'warning');
+      onToast('Please enter a task title', 'warning');
       return;
     }
     const item: SessionTaskItem = {
@@ -1339,7 +1339,7 @@ function SessionView({
     setNewTaskDraft({ title: '', assignee: 'Alex Morgan', deadline: 'Friday, 5:00 PM', requirement: 'Follow accessibility guidelines' });
     setCreateTaskOpen(false);
     setTaskViewMode('list');
-    onToast(`Đã thêm nhiệm vụ mới: "${item.title}"`, 'success');
+    onToast(`Added new task: "${item.title}"`, 'success');
   };
 
   // Auto-scroll on new message
@@ -1347,7 +1347,7 @@ function SessionView({
     timelineEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [segments]);
 
-  // Two-way instant microphone capture with VI / EN language support
+  // Two-way instant microphone capture with EN / VI language support
   const voice = useRealtimeVoice((text, src) => {
     emitTranscript(text, true, src);
 
@@ -1358,7 +1358,7 @@ function SessionView({
         emitBarrier('LOW_CONFIDENCE', 'A deadline or requirement has been updated.', 'Pause and acknowledge the changed detail clearly.');
       }
     }
-  }, 'vi-VN');
+  }, 'en-US');
 
   const [isDictating, setIsDictating] = useState(false);
   const inputRecognitionRef = useRef<any>(null);
@@ -1371,7 +1371,7 @@ function SessionView({
     }
     const Recognition = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
     if (!Recognition) {
-      onToast('Trình duyệt chưa hỗ trợ nhận diện giọng nói. Hãy dùng Chrome hoặc Edge.', 'warning');
+      onToast('Speech recognition is not supported in this browser. Please use Chrome or Edge.', 'warning');
       return;
     }
     try {
@@ -1391,7 +1391,7 @@ function SessionView({
       rec.start();
       inputRecognitionRef.current = rec;
       setIsDictating(true);
-      onToast(`Đang nghe (${voice.language === 'vi-VN' ? 'Tiếng Việt' : 'English'})... Hãy nói nội dung`, 'info');
+      onToast(`Listening (${voice.language === 'en-US' ? 'English' : 'Vietnamese'})... Speak your message`, 'info');
     } catch {
       setIsDictating(false);
     }
@@ -1409,7 +1409,7 @@ function SessionView({
     command('demo:reset');
     setAiSummary(null);
     setAiResult(null);
-    onToast('Đã làm mới phiên trò chuyện', 'info');
+    onToast('Demo session reset', 'info');
   };
 
   const handleSendText = (e?: React.FormEvent) => {
@@ -1442,9 +1442,9 @@ function SessionView({
     } catch {}
 
     const textMap = {
-      understood: 'Đã gửi tín hiệu: "Đã hiểu" (Jordan đã nhận được thông báo)',
-      'slow-down': 'Đã gửi tín hiệu: "Nói chậm lại" (Jordan đã nhận cảnh báo)',
-      repeat: 'Đã gửi tín hiệu: "Nhắc lại ý vừa rồi" (Jordan đã nhận thông báo)',
+      understood: 'Signal sent: "Understood" (Jordan notified)',
+      'slow-down': 'Signal sent: "Slow down" (Jordan notified)',
+      repeat: 'Signal sent: "Repeat" (Jordan notified)',
     };
     onToast(textMap[sig], sig === 'understood' ? 'success' : 'warning');
   };
@@ -1494,7 +1494,7 @@ function SessionView({
   const runAiSummarize = async () => {
     const textToAnalyze = fullConversationText.trim();
     if (!textToAnalyze) {
-      onToast('Chưa có tin nhắn nào trong hội thoại để AI phân tích. Hãy nói hoặc gửi tin nhắn trước.', 'warning');
+      onToast('No messages in the conversation yet to summarize. Please speak or send a message first.', 'warning');
       return;
     }
     setAiLoading(true);
@@ -1512,7 +1512,7 @@ function SessionView({
         setAiResult({
           mode: data.mode,
           confidence: data.task.confidence ?? 0.88,
-          reason: 'AI trích xuất thành công nhiệm vụ từ cuộc trò chuyện.',
+          reason: 'AI successfully extracted tasks from the conversation.',
           taskDetected: true,
         });
         emitPossibleTask({
@@ -1521,19 +1521,19 @@ function SessionView({
           deadline: data.task.deadline,
           requirement: data.task.requirement,
         });
-        onToast('AI đã tóm tắt & trích xuất thành công nhiệm vụ!', 'success');
+        onToast('AI summarized conversation & extracted tasks successfully!', 'success');
       } else {
         setAiResult({
           mode: data.mode,
           confidence: 0.9,
-          reason: 'Đã hoàn tất tóm tắt cuộc trò chuyện.',
+          reason: 'Conversation summary completed.',
           taskDetected: false,
         });
-        onToast('AI đã hoàn tất tóm tắt cuộc trò chuyện.', 'info');
+        onToast('AI completed conversation summary.', 'info');
       }
       setMobileTaskOpen(true);
     } catch {
-      onToast('Dịch vụ AI tóm tắt tạm thời bận, vui lòng thử lại.', 'warning');
+      onToast('AI summarization service is busy, please try again.', 'warning');
     } finally {
       setAiLoading(false);
     }
@@ -1588,19 +1588,19 @@ function SessionView({
           type="button"
           className={`task-mode-btn ${taskViewMode === 'focus' ? 'active' : ''}`}
           onClick={() => setTaskViewMode('focus')}
-          title="Xem chi tiết 1 task chính"
+          title="View single focus task"
         >
           <Sparkles size={13} />
-          <span>Task chính (Focus)</span>
+          <span>Focus Task</span>
         </button>
         <button
           type="button"
           className={`task-mode-btn ${taskViewMode === 'list' ? 'active' : ''}`}
           onClick={() => setTaskViewMode('list')}
-          title="Xem toàn bộ danh sách task cuộc họp"
+          title="View all session tasks"
         >
           <LayoutList size={13} />
-          <span>Danh sách Task</span>
+          <span>Task List</span>
           <span className="task-badge-count">{sessionTasks.length}</span>
         </button>
       </div>
@@ -1610,7 +1610,7 @@ function SessionView({
         <div className="ai-summary-box">
           <div className="ai-summary-box-header">
             <Sparkles size={16} />
-            <span>AI Tóm tắt cuộc trao đổi</span>
+            <span>AI Conversation Summary</span>
             <span className="ai-summary-tag">
               {aiSummary.taskCount > 1 ? `${aiSummary.taskCount} Tasks` : 'AI Summary'}
             </span>
@@ -1638,16 +1638,16 @@ function SessionView({
             <div className="ai-multitask-list">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <small style={{ fontWeight: 700, color: '#1d5582' }}>
-                  {aiSummary.tasks.length > 1 ? `AI trích xuất ${aiSummary.tasks.length} nhiệm vụ:` : 'AI trích xuất 1 nhiệm vụ:'}
+                  {aiSummary.tasks.length > 1 ? `AI extracted ${aiSummary.tasks.length} tasks:` : 'AI extracted 1 task:'}
                 </small>
                 <button
                   type="button"
                   className="mini-action-btn primary"
                   style={{ fontSize: 9, padding: '3px 8px' }}
                   onClick={() => handleApplyAiTasksToSession(aiSummary.tasks)}
-                  title="Đồng bộ tất cả nhiệm vụ này vào danh sách phiên họp"
+                  title="Apply all extracted tasks to session list"
                 >
-                  <Check size={11} /> Áp dụng vào danh sách
+                  <Check size={11} /> Apply to list
                 </button>
               </div>
               {aiSummary.tasks.map((tItem: ExtractedTaskItem, idx: number) => (
@@ -1657,15 +1657,15 @@ function SessionView({
                   onClick={() => {
                     emitPossibleTask(tItem);
                     setTaskViewMode('focus');
-                    onToast(`Đã chọn nhiệm vụ: "${tItem.title}"`, 'info');
+                    onToast(`Selected task: "${tItem.title}"`, 'info');
                   }}
-                  title="Bấm để chọn làm tiêu điểm và xác nhận nhiệm vụ này"
+                  title="Click to focus and confirm this task"
                 >
                   <div className="ai-task-item-top">
                     <strong>{idx + 1}. {tItem.title}</strong>
                     <span className="mini-chip">{tItem.deadline}</span>
                   </div>
-                  <small>Phụ trách: {tItem.assignee} · {tItem.requirement}</small>
+                  <small>Assignee: {tItem.assignee} · {tItem.requirement}</small>
                 </div>
               ))}
             </div>
@@ -1705,9 +1705,9 @@ function SessionView({
                       type="button"
                       className="mini-action-btn"
                       onClick={() => handleSelectTaskFocus(st)}
-                      title="Xem chi tiết & xác nhận từng bước"
+                      title="View details & confirm"
                     >
-                      <Sparkles size={11} /> Xem chi tiết
+                      <Sparkles size={11} /> Details
                     </button>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {!isConfirmed && (
@@ -1715,16 +1715,16 @@ function SessionView({
                           type="button"
                           className="mini-action-btn success"
                           onClick={() => handleQuickConfirmSingleTask(st.id)}
-                          title="Xác nhận nhanh nhiệm vụ này"
+                          title="Quickly confirm this task"
                         >
-                          <Check size={11} /> Xác nhận
+                          <Check size={11} /> Confirm
                         </button>
                       )}
                       <button
                         type="button"
                         className="mini-action-btn danger"
                         onClick={() => handleRemoveTask(st.id)}
-                        title="Loại trừ nhiệm vụ này"
+                        title="Remove this task"
                       >
                         <X size={11} />
                       </button>
@@ -1741,17 +1741,17 @@ function SessionView({
               type="button"
               className="batch-confirm-all-btn"
               onClick={handleBatchConfirmAll}
-              title="Đồng thuận và xác nhận tất cả nhiệm vụ trong phiên"
+              title="Confirm and agree on all session tasks"
             >
-              <CheckCircle2 size={15} /> Xác nhận tất cả ({sessionTasks.length}) Task
+              <CheckCircle2 size={15} /> Confirm all ({sessionTasks.length}) Tasks
             </button>
             <button
               type="button"
               className="add-task-quick-btn"
               onClick={() => setCreateTaskOpen(true)}
-              title="Thêm nhiệm vụ mới vào phiên"
+              title="Add a new task to session"
             >
-              <Plus size={14} /> Thêm Task
+              <Plus size={14} /> Add Task
             </button>
           </div>
         </div>
@@ -1821,7 +1821,7 @@ function SessionView({
                     className="primary-button"
                     onClick={() => {
                       command('task:manager-confirm');
-                      emitTranscript(`Jordan confirmed Assignment (Revision ${(state.revision || 0) + 1}): "${state.taskTitle || 'Nhiệm vụ'}" · Due ${state.deadline || 'Chưa định ngày'}`, true, 'demo');
+                      emitTranscript(`Jordan confirmed Assignment (Revision ${(state.revision || 0) + 1}): "${state.taskTitle || 'Assignment'}" · Due ${state.deadline || 'TBD'}`, true, 'demo');
                       onToast('Task confirmed by Manager', 'success');
                     }}
                   >
@@ -1845,7 +1845,7 @@ function SessionView({
                     style={{ flex: 2 }}
                     onClick={() => {
                       command('task:employee-acknowledge');
-                      emitTranscript(`Alex acknowledged & confirmed task: "${state.taskTitle || 'Nhiệm vụ'}" (Mutually agreed)`, true, 'demo');
+                      emitTranscript(`Alex acknowledged & confirmed task: "${state.taskTitle || 'Assignment'}" (Mutually agreed)`, true, 'demo');
                       onToast('Task acknowledged & confirmed successfully', 'success');
                     }}
                   >
@@ -1868,7 +1868,7 @@ function SessionView({
 
       <button className="demo-control ai-action-btn" disabled={aiLoading} onClick={() => void runAiSummarize()}>
         <Sparkles size={18} className="ai-btn-sparkle" />
-        <span>{aiLoading ? 'Đang tóm tắt…' : 'AI Tóm tắt & Trích Task'}</span>
+        <span>{aiLoading ? 'Summarizing…' : 'AI Summarize & Extract Tasks'}</span>
       </button>
     </>
   );
@@ -1886,29 +1886,19 @@ function SessionView({
             <button
               className={`voice-button ${voice.status}`}
               onClick={() => void voice.start()}
-              aria-label={voice.status === 'live' ? 'Dừng Micro' : 'Bật Micro Live Captions'}
-              title={voice.error || (voice.status === 'live' ? 'Đang nhận diện giọng nói tức thì. Bấm để dừng.' : 'Bật Micro nhận diện giọng nói trực tiếp')}
+              aria-label={voice.status === 'live' ? 'Stop Microphone' : 'Start Live Captions Mic'}
+              title={voice.error || (voice.status === 'live' ? 'Live speech recognition active. Click to stop.' : 'Start microphone for live captions')}
             >
               <Mic size={16} />
               {voice.status === 'connecting'
-                ? 'Đang kết nối...'
+                ? 'Connecting...'
                 : voice.status === 'live'
-                ? `Đang nghe (${voice.language === 'vi-VN' ? 'VI' : 'EN'})`
+                ? `Listening (${voice.language === 'en-US' ? 'EN' : 'VI'})`
                 : voice.status === 'error'
-                ? 'Thử lại Mic'
-                : 'Bật Mic Live'}
+                ? 'Retry Mic'
+                : 'Start Mic'}
             </button>
-            <div className="voice-lang-picker" role="radiogroup" aria-label="Ngôn ngữ giọng nói">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={voice.language === 'vi-VN'}
-                className={`voice-lang-btn ${voice.language === 'vi-VN' ? 'active' : ''}`}
-                onClick={() => voice.changeLanguage('vi-VN')}
-                title="Tiếng Việt (Nhận diện tức thì)"
-              >
-                <span className="lang-tag">VI</span><span className="lang-name"> Tiếng Việt</span>
-              </button>
+            <div className="voice-lang-picker" role="radiogroup" aria-label="Speech language">
               <button
                 type="button"
                 role="radio"
@@ -1919,10 +1909,20 @@ function SessionView({
               >
                 <span className="lang-tag">EN</span><span className="lang-name"> English</span>
               </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={voice.language === 'vi-VN'}
+                className={`voice-lang-btn ${voice.language === 'vi-VN' ? 'active' : ''}`}
+                onClick={() => voice.changeLanguage('vi-VN')}
+                title="Vietnamese (Instant speech recognition)"
+              >
+                <span className="lang-tag">VI</span><span className="lang-name"> Vietnamese</span>
+              </button>
             </div>
           </div>
           <div className="session-end-group">
-            <button className="icon-button" onClick={reset} title="Khởi động lại phiên demo" aria-label="Restart demo session">
+            <button className="icon-button" onClick={reset} title="Restart demo session" aria-label="Restart demo session">
               <RefreshCcw size={16} />
             </button>
             <button
@@ -1930,10 +1930,10 @@ function SessionView({
               onClick={() => {
                 voice.stop();
                 command('session:end');
-                onToast(`Phiên họp đã kết thúc bởi ${role === 'manager' ? 'Jordan' : 'Alex'}`, 'info');
+                onToast(`Session ended by ${role === 'manager' ? 'Jordan' : 'Alex'}`, 'info');
               }}
             >
-              <Pause size={16} /> <span>Kết thúc</span>
+              <Pause size={16} /> <span>End</span>
             </button>
           </div>
         </div>
@@ -1951,12 +1951,12 @@ function SessionView({
                  <CircleHelp size={22} />}
               </div>
               <div className="signal-banner-content">
-                <span className="signal-banner-kicker">Tín hiệu trực tiếp từ Alex (Employee)</span>
+                <span className="signal-banner-kicker">Live signal from Alex (Employee)</span>
                 <strong>
-                  {state.lastSignal === 'Understood' ? '🟢 Alex đã hiểu toàn bộ nội dung vừa trao đổi' :
-                   state.lastSignal === 'Slow down' ? '🟠 Alex yêu cầu: Hãy nói chậm lại một chút' :
-                   state.lastSignal === 'Repeat' ? '🔵 Alex yêu cầu: Vui lòng nhắc lại chi tiết vừa nói' :
-                   `🟣 Alex yêu cầu: ${state.lastSignal}`}
+                  {state.lastSignal === 'Understood' ? '🟢 Alex understood all discussed points' :
+                   state.lastSignal === 'Slow down' ? '🟠 Alex requested: Please slow down speaking pace' :
+                   state.lastSignal === 'Repeat' ? '🔵 Alex requested: Please restate the last point' :
+                   `🟣 Alex requested: ${state.lastSignal}`}
                 </strong>
               </div>
             </div>
@@ -1994,10 +1994,10 @@ function SessionView({
               className="ai-banner-summary-btn"
               onClick={() => void runAiSummarize()}
               disabled={aiLoading}
-              title="AI tóm tắt toàn bộ cuộc trao đổi và trích xuất nhiệm vụ"
+              title="AI summarize the entire conversation and extract tasks"
             >
               <Sparkles size={15} className="ai-btn-sparkle" />
-              <span className="ai-banner-btn-label">{aiLoading ? 'Đang tóm tắt…' : 'Tóm tắt AI'}</span>
+              <span className="ai-banner-btn-label">{aiLoading ? 'Summarizing…' : 'AI Summary'}</span>
             </button>
           </div>
 
@@ -2018,8 +2018,8 @@ function SessionView({
             {segments.length === 0 && voice.status !== 'live' && (
               <div className="empty-timeline-box">
                 <MessageCircleQuestion size={36} />
-                <strong>Chưa có nội dung trao đổi</strong>
-                <p>Bật micro 🎙️ hoặc gõ tin nhắn bên dưới để bắt đầu. AI sẽ tự động phân tích & tóm tắt dựa trên toàn bộ câu thoại bạn trực tiếp trao đổi trong phiên.</p>
+                <strong>No conversation messages yet</strong>
+                <p>Turn on the microphone 🎙️ or type a message below to start. AI will automatically analyze & summarize based on your spoken and written messages.</p>
               </div>
             )}
             {segments.map((seg, idx) => {
@@ -2048,8 +2048,8 @@ function SessionView({
                           </>
                         ) : /thứ\s*Năm\s*lúc\s*16(?::00|h)?/i.test(seg.text) ? (
                           <>
-                            Dời deadline sang <mark className="diff-highlight">thứ Năm lúc 16:00</mark>
-                            <span className="diff-badge"><RefreshCcw size={10} /> Đã đổi hạn</span> kèm luồng trợ năng nhé.
+                            Moving deadline to <mark className="diff-highlight">Thursday at 4:00 PM</mark>
+                            <span className="diff-badge"><RefreshCcw size={10} /> Updated</span> and include the accessibility flow.
                           </>
                         ) : (
                           seg.text
@@ -2083,7 +2083,7 @@ function SessionView({
                     <strong>
                       {role === 'manager' ? 'Jordan Lee' : 'Alex Morgan'}
                     </strong>
-                    <span className="live-pill"><span className="live-dot" /> Đang nói...</span>
+                    <span className="live-pill"><span className="live-dot" /> Speaking...</span>
                   </div>
                   <div className="turn-bubble">
                     <p className="interim-text">{voice.transcript}</p>
@@ -2093,7 +2093,7 @@ function SessionView({
             )}
             {voice.status === 'live' && !voice.transcript && (
               <div className="voice-listening-bar">
-                <span className="live-dot" /> Micro đang mở ({voice.language === 'vi-VN' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'}) · Đang lắng nghe giọng nói...
+                <span className="live-dot" /> Microphone active ({voice.language === 'en-US' ? '🇺🇸 English' : '🇻🇳 Vietnamese'}) · Listening for speech...
               </div>
             )}
             <div ref={timelineEndRef} />
@@ -2108,11 +2108,11 @@ function SessionView({
                 onClick={() => {
                   const msg = `📌 **AI Summary:** ${aiSummary.summary}\n• ${aiSummary.bulletPoints.join('\n• ')}`;
                   emitTranscript(msg, true, 'demo');
-                  onToast('Đã gửi tóm tắt AI vào đoạn chat', 'success');
+                  onToast('Posted AI summary into conversation', 'success');
                 }}
-                title="Gửi nội dung tóm tắt vào dòng hội thoại"
+                title="Post summary into chat conversation"
               >
-                <Send size={13} /> Gửi tóm tắt AI vào hội thoại
+                <Send size={13} /> Post AI summary into conversation
               </button>
             </div>
           )}
@@ -2126,18 +2126,18 @@ function SessionView({
                     type="button"
                     className={`quick-signals-trigger-btn ${signalsOpen ? 'active' : ''}`}
                     onClick={() => setSignalsOpen(!signalsOpen)}
-                    title="Mở tiện ích phản hồi nhanh 1 chạm đến Manager"
-                    aria-label="Phản hồi nhanh"
+                    title="Open 1-tap quick feedback to Manager"
+                    aria-label="Quick feedback"
                   >
                     <Hand size={17} />
                     <ChevronUp size={13} className={`signals-chevron ${signalsOpen ? 'open' : ''}`} />
                   </button>
 
                   {signalsOpen && (
-                    <div className="quick-signals-popover" role="dialog" aria-label="Tùy chọn phản hồi nhanh">
+                    <div className="quick-signals-popover" role="dialog" aria-label="Quick feedback options">
                       <div className="signals-popover-header">
-                        <span>⚡ Phản hồi nhanh đến Jordan</span>
-                        <button type="button" onClick={() => setSignalsOpen(false)} aria-label="Đóng"><X size={14} /></button>
+                        <span>⚡ Quick feedback to Jordan</span>
+                        <button type="button" onClick={() => setSignalsOpen(false)} aria-label="Close"><X size={14} /></button>
                       </div>
                       <div className="signals-popover-grid">
                         <button
@@ -2151,7 +2151,7 @@ function SessionView({
                           <span className="signal-opt-icon"><CheckCircle2 size={18} /></span>
                           <div>
                             <strong>Understood</strong>
-                            <small>Đã hiểu rõ nội dung</small>
+                            <small>Clear on all details</small>
                           </div>
                         </button>
                         <button
@@ -2165,7 +2165,7 @@ function SessionView({
                           <span className="signal-opt-icon"><Hand size={18} /></span>
                           <div>
                             <strong>Slow down</strong>
-                            <small>Xin hãy nói chậm lại</small>
+                            <small>Please reduce pace</small>
                           </div>
                         </button>
                         <button
@@ -2179,7 +2179,7 @@ function SessionView({
                           <span className="signal-opt-icon"><Repeat2 size={18} /></span>
                           <div>
                             <strong>Repeat</strong>
-                            <small>Xin nhắc lại chi tiết</small>
+                            <small>Please restate last point</small>
                           </div>
                         </button>
                         <button
@@ -2193,7 +2193,7 @@ function SessionView({
                           <span className="signal-opt-icon"><CircleHelp size={18} /></span>
                           <div>
                             <strong>Clarify</strong>
-                            <small>Yêu cầu làm rõ cụ thể</small>
+                            <small>Request specific detail</small>
                           </div>
                         </button>
                       </div>
@@ -2202,73 +2202,73 @@ function SessionView({
                 </div>
               )}
 
-              <input
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={isDictating ? 'Đang lắng nghe giọng nói của bạn...' : `Nói qua mic phía trên hoặc gõ ${role === 'manager' ? 'chỉ đạo công việc / trao đổi' : 'phản hồi / câu hỏi'}...`}
-              />
-              <button
-                type="button"
-                className={`dictate-btn ${isDictating ? 'active' : ''}`}
-                onClick={toggleDictation}
-                title={isDictating ? 'Dừng đọc' : 'Nói để tự điền văn bản vào ô chat'}
-                aria-label="Dictate into text input"
-              >
-                <Mic size={18} />
-              </button>
-              <button type="submit" className="send-btn" title="Gửi nội dung vào hội thoại">
-                <Send size={14} /> Gửi
-              </button>
-            </form>
-          </div>
-        </section>
+            <input
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder={isDictating ? 'Listening to your voice...' : `Speak via mic above or type ${role === 'manager' ? 'direction / guidance' : 'response / question'}...`}
+            />
+            <button
+              type="button"
+              className={`dictate-btn ${isDictating ? 'active' : ''}`}
+              onClick={toggleDictation}
+              title={isDictating ? 'Stop dictation' : 'Speak to dictate into chat input'}
+              aria-label="Dictate into text input"
+            >
+              <Mic size={18} />
+            </button>
+            <button type="submit" className="send-btn" title="Send message to conversation">
+              <Send size={14} /> Send
+            </button>
+          </form>
+        </div>
+      </section>
 
-        <aside className={`context-panel ${highlightPulse ? 'highlight-pulse' : ''}`} id="important-info">
-          <div className="context-heading">
-            <span className="section-kicker">Shared understanding</span>
-            <h2>Key details</h2>
-          </div>
-          {renderKeyDetailsContent()}
-        </aside>
-      </div>
+      <aside className={`context-panel ${highlightPulse ? 'highlight-pulse' : ''}`} id="important-info">
+        <div className="context-heading">
+          <span className="section-kicker">Shared understanding</span>
+          <h2>Key details</h2>
+        </div>
+        {renderKeyDetailsContent()}
+      </aside>
+    </div>
 
-      {/* Mobile Floating Task Action Button */}
-      <button
-        type="button"
-        className={`mobile-floating-task-btn ${hasPendingAction ? 'has-action' : ''}`}
-        onClick={() => setMobileTaskOpen(true)}
-        aria-label="Mở Nhiệm vụ & Xác nhận"
-        title="Mở Nhiệm vụ & Xác nhận"
-      >
-        <LayoutList size={18} />
-        <span>Nhiệm vụ {sessionTasks.length > 0 ? `(${sessionTasks.length})` : ''}</span>
-        {hasPendingAction && <span className="floating-action-dot" />}
-      </button>
+    {/* Mobile Floating Task Action Button */}
+    <button
+      type="button"
+      className={`mobile-floating-task-btn ${hasPendingAction ? 'has-action' : ''}`}
+      onClick={() => setMobileTaskOpen(true)}
+      aria-label="Open Tasks & Confirmations"
+      title="Open Tasks & Confirmations"
+    >
+      <LayoutList size={18} />
+      <span>Tasks {sessionTasks.length > 0 ? `(${sessionTasks.length})` : ''}</span>
+      {hasPendingAction && <span className="floating-action-dot" />}
+    </button>
 
-      {/* Mobile Task & Confirmation Drawer Sheet */}
-      {mobileTaskOpen && (
-        <div className="mobile-drawer-layer" role="dialog" aria-modal="true" aria-label="Nhiệm vụ & Xác nhận">
-          <div className="mobile-drawer-backdrop" onClick={() => setMobileTaskOpen(false)} />
-          <div className="mobile-drawer-sheet">
-            <div className="mobile-drawer-handle" />
-            <div className="mobile-drawer-header">
-              <div className="mobile-drawer-title">
-                <LayoutList size={20} color="var(--orange)" />
-                <div>
-                  <strong>Nhiệm vụ & Xác nhận</strong>
-                  <small>{sessionTasks.length} nhiệm vụ · {role === 'manager' ? 'Jordan Lee' : 'Alex Morgan'}</small>
-                </div>
+    {/* Mobile Task & Confirmation Drawer Sheet */}
+    {mobileTaskOpen && (
+      <div className="mobile-drawer-layer" role="dialog" aria-modal="true" aria-label="Tasks & Confirmations">
+        <div className="mobile-drawer-backdrop" onClick={() => setMobileTaskOpen(false)} />
+        <div className="mobile-drawer-sheet">
+          <div className="mobile-drawer-handle" />
+          <div className="mobile-drawer-header">
+            <div className="mobile-drawer-title">
+              <LayoutList size={20} color="var(--orange)" />
+              <div>
+                <strong>Tasks & Confirmations</strong>
+                <small>{sessionTasks.length} tasks · {role === 'manager' ? 'Jordan Lee' : 'Alex Morgan'}</small>
               </div>
-              <button className="mobile-drawer-close" onClick={() => setMobileTaskOpen(false)} aria-label="Đóng">
-                <X size={18} />
-              </button>
             </div>
-            <div className="mobile-drawer-body">
-              {renderKeyDetailsContent()}
-            </div>
+            <button className="mobile-drawer-close" onClick={() => setMobileTaskOpen(false)} aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mobile-drawer-body">
+            {renderKeyDetailsContent()}
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* Modal: Create Task Inline */}
       {createTaskOpen && (
@@ -2720,11 +2720,11 @@ function renderStructuredDetail(detail: string) {
 }
 
 function KnowledgeView() {
-  const [question, setQuestion] = useState('Chính sách hỗ trợ cho người khiếm thính như thế nào?');
+  const [question, setQuestion] = useState('What is the accommodation policy for deaf and hard-of-hearing employees?');
   const [result, setResult] = useState<KnowledgeResult>({
     found: true,
-    answer: 'Understood cung cấp chính sách hỗ trợ tiếp cận toàn diện, phụ đề tự động thời gian thực và thông dịch viên ngôn ngữ ký hiệu.',
-    detail: 'Nhân viên khiếm thính được trang bị: (1) Công cụ phụ đề thời gian thực hai chiều trên mọi nền tảng họp; (2) Thông dịch viên ASL/VNL theo yêu cầu cho các cuộc họp quan trọng; (3) Ngân sách thiết bị trợ năng $1,500/năm (máy trợ thính, tai nghe chống ồn, đồng hồ báo rung); (4) Ưu tiên giao tiếp văn bản bất đồng bộ (asynchronous-first).',
+    answer: 'Understood provides comprehensive accessibility accommodations, real-time bidirectional live captions, and certified sign language interpretation on demand.',
+    detail: 'Deaf and hard-of-hearing employees are supported with: (1) Two-way real-time live captions across all meeting platforms; (2) On-demand ASL/VNL interpreters for critical sessions; (3) An annual $1,500 assistive technology stipend (hearing aids, noise-canceling headsets, vibrating alert devices); (4) An asynchronous-first written communication standard.',
     source: {
       title: 'Accessibility & Inclusion Charter',
       section: 'Accommodations & Assistive Tech · Section 2.1',
@@ -2738,19 +2738,19 @@ function KnowledgeView() {
   const answerRef = useRef<HTMLDivElement>(null);
 
   const reasoningSteps = [
-    { title: 'Phân tích câu hỏi', detail: 'Đang xác định ngữ cảnh và nội dung cần tra cứu', tag: 'Phân tích từ khóa' },
-    { title: 'Tìm kiếm trong kho dữ liệu', detail: 'Đang quét toàn bộ sổ tay chính sách & quy chuẩn doanh nghiệp', tag: 'Khớp 98.4%' },
-    { title: 'Đối chiếu và xác thực thông tin', detail: 'Kiểm tra độ chính xác, đảm bảo đúng quy định nội bộ', tag: 'Đã xác thực' },
-    { title: 'Tổng hợp câu trả lời chi tiết', detail: 'Chuẩn bị câu trả lời rõ ràng theo từng đầu mục dễ đọc', tag: 'Đã sẵn sàng' },
+    { title: 'Analyze inquiry', detail: 'Determining workplace context and policy scope', tag: 'Keyword Parser' },
+    { title: 'Query knowledge base', detail: 'Scanning company handbook and accessibility standards', tag: '98.4% match' },
+    { title: 'Cross-verify & validate', detail: 'Ensuring alignment with verified company policies', tag: 'Verified' },
+    { title: 'Synthesize structured response', detail: 'Formatting clear, actionable takeaways for readability', tag: 'Ready' },
   ];
 
   const suggestedQuestions = [
-    'Chính sách hỗ trợ cho người khiếm thính?',
+    'What is the accommodation policy for deaf employees?',
     'What is the remote & hybrid work policy?',
-    'Làm sao để xin nghỉ phép & chế độ nghỉ ốm?',
-    'Quy trình đánh giá hiệu suất & thưởng KPI?',
+    'How do I request paid time off (PTO) & sick leave?',
+    'What is the performance review & bonus process?',
     'Where are the WCAG 2.2 design guidelines?',
-    'Ngân sách trang thiết bị làm việc & máy tính?',
+    'What is the home office & equipment stipend?',
     'Who is my People Partner & HR contact?',
   ];
 
@@ -2794,8 +2794,8 @@ function KnowledgeView() {
     } catch {
       setResult({
         found: false,
-        answer: 'Không tìm thấy thông tin phù hợp trong kho dữ liệu doanh nghiệp.',
-        detail: 'Dịch vụ tra cứu kiến thức tạm thời không phản hồi. Vui lòng thử lại hoặc liên hệ People Operations.',
+        answer: 'No matching policy found in enterprise knowledge base.',
+        detail: 'Knowledge service is temporarily unavailable. Please try again or reach out to People Operations.',
         source: null,
       });
     } finally {
@@ -2815,14 +2815,14 @@ function KnowledgeView() {
       <PageHeading
         eyebrow="Enterprise AI Knowledge Copilot"
         title="Ask your workplace."
-        copy="Tra cứu chính sách, quy chế và hỗ trợ tiếp cận chuẩn hóa của doanh nghiệp với AI Grounded RAG."
+        copy="Search company policies, guidelines, and accessibility charters with AI Grounded RAG."
       />
       <section className="knowledge-card">
         <form className="knowledge-search" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
           <Search />
           <input
             aria-label="Ask a workplace question"
-            placeholder="Hỏi về làm việc từ xa, hỗ trợ tiếp cận, nghỉ phép, KPI, thiết bị..."
+            placeholder="Ask about remote work, accessibility accommodations, leave, KPI, equipment..."
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
           />
@@ -2830,7 +2830,7 @@ function KnowledgeView() {
         </form>
 
         <div className="suggestions">
-          <span>Gợi ý câu hỏi</span>
+          <span>Suggested questions</span>
           {suggestedQuestions.map((item) => (
             <button key={item} type="button" onClick={() => void ask(item)}>{item}</button>
           ))}
@@ -2847,15 +2847,15 @@ function KnowledgeView() {
                 <div>
                   <div className="pipeline-live-row">
                     <span className="live-dot" />
-                    <strong>Hệ thống đang tìm kiếm dữ liệu...</strong>
+                    <strong>Searching knowledge base...</strong>
                     <span className="pipeline-timer">⏱ {(elapsedMs / 1000).toFixed(2)}s</span>
                   </div>
-                  <small>Đang tra cứu, đối chiếu và tổng hợp thông tin từ cơ sở dữ liệu doanh nghiệp</small>
+                  <small>Scanning, verifying, and synthesizing verified enterprise guidelines</small>
                 </div>
               </div>
               <div className="pipeline-telemetry-tag">
                 <Zap size={13} />
-                <span>Đang truy xuất dữ liệu</span>
+                <span>Retrieving data</span>
               </div>
             </div>
 
@@ -2901,11 +2901,11 @@ function KnowledgeView() {
             <div className="answer-content">
               <div className="answer-badge-row">
                 <span className="verified-pill">
-                  <ShieldCheck size={13} /> {result.found ? 'Quy chuẩn đã xác thực (Verified Policy)' : 'Không tìm thấy nguồn'}
+                  <ShieldCheck size={13} /> {result.found ? 'Verified Enterprise Policy' : 'Source not found'}
                 </span>
                 {result.mode === 'ai' && (
                   <span className="diff-badge rag">
-                    <Sparkles size={11} /> AI Trợ lý
+                    <Sparkles size={11} /> AI Assistant
                   </span>
                 )}
               </div>
