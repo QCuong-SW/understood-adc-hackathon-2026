@@ -635,7 +635,7 @@ function usePreferences(role: Role | null) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="brand" aria-label="Understood">
-      <span className="brand-mark"><Volume2 size={compact ? 18 : 22} strokeWidth={2.6} /></span>
+      <img src="/logo.png" alt="Understood" className={`brand-logo-img ${compact ? 'compact' : ''}`} />
       {!compact && <span>understood<span className="brand-dot">.</span></span>}
     </div>
   );
