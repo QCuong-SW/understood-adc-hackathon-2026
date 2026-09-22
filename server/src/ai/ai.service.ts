@@ -261,7 +261,7 @@ export class AiService {
         confidence: number;
       }>(
         safeTranscript,
-        'Analyze only the supplied workplace transcript. Set taskDetected=true ONLY when a speaker explicitly assigns or requests concrete work (e.g., "Alex, please complete...", "Can you prepare...", "Hãy gửi bản thiết kế...", "Giao cho Alex..."). A casual discussion, question, idea, or plan is NOT a task. If taskDetected=true, extract title, assignee, deadline, and requirement. If any field is not specified in the speech, use "Needs clarification". Never hallucinate details.',
+        'Analyze only the supplied workplace transcript. LANGUAGE POLICY: Strictly support only Vietnamese (Tiếng Việt) and English (Tiếng Anh). Write all extracted fields in the matching language of the conversation (Vietnamese if transcript is Vietnamese, English if transcript is English). Never output any other language. Set taskDetected=true ONLY when a speaker explicitly assigns or requests concrete work (e.g., "Alex, please complete...", "Can you prepare...", "Hãy gửi bản thiết kế...", "Giao cho Alex..."). A casual discussion, question, idea, or plan is NOT a task. If taskDetected=true, extract title, assignee, deadline, and requirement. If any field is not specified in the speech, use "Needs clarification" (or "Cần làm rõ" in Vietnamese). Never hallucinate details.',
         schema,
       );
 
@@ -448,7 +448,7 @@ export class AiService {
         tasks: ExtractedTaskItem[];
       }>(
         safeTranscript,
-        'You are Understood AI Assistant. Summarize the workplace conversation concisely for a deaf individual and manager. IMPORTANT INSTRUCTIONS: 1. Keep the summary short and crisp. 2. Deduplicate tasks: If a task was mentioned multiple times or its deadline/scope was modified (e.g. changed from Friday to Thursday 4 PM), KEEP ONLY the single final agreed task with the latest deadline. 3. Return an array of distinct, deduplicated tasks. 4. If multiple tasks exist, adapt the summary to be a brief list with no repetition.',
+        'You are Understood AI Assistant. Summarize the workplace conversation concisely for a deaf individual and manager. LANGUAGE POLICY: Strictly support only Vietnamese (Tiếng Việt) and English (Tiếng Anh). Detect the primary language of the conversation and write the summary, bulletPoints, and keyDecisions in the matching language (Vietnamese for Vietnamese conversation, English for English conversation). Never output any third language. IMPORTANT INSTRUCTIONS: 1. Keep the summary short and crisp. 2. Deduplicate tasks: If a task was mentioned multiple times or its deadline/scope was modified (e.g. changed from Friday to Thursday 4 PM), KEEP ONLY the single final agreed task with the latest deadline. 3. Return an array of distinct, deduplicated tasks. 4. If multiple tasks exist, adapt the summary to be a brief list with no repetition.',
         schema,
       );
 
